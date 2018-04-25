@@ -1,0 +1,15 @@
+%! plot output for postscript printers, cbg.
+.1 setlinewidth
+72 300 div dup scale
+/m {moveto} def
+/rgb {setrgbcolor} def
+/c {closepath} def
+/r {rlineto} def
+/s {stroke} def
+/c {0 360 arc} def
+/t1 {/Times-Roman findfont 6 scalefont setfont}def
+/t10{/Times-Roman findfont 41 scalefont setfont}def
+20 20 m 
+0.0 0.0 0.0 rgb
+
+t1(HPR L/S plot: non-layout)show

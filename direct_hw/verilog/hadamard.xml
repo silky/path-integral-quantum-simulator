@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<spirit:component xmlns:spirit="http://www.spiritconsortium.org/XMLSchema/SPIRIT/1685-2009">
+  <vendor>HPRLS</vendor>
+  <library>nolib</library>
+  <name>hadamard</name>
+  <version>1.0</version>
+  <spirit:fileSets>
+    <spirit:fileSet>
+      <spirit:name>hadamard.v</spirit:name>
+    </spirit:fileSet>
+  </spirit:fileSets>
+  <spirit:vendorExtensions>
+    <hprls:area xmlns:hprls="http://www.hprls.com/XMLSchema/hprlsZero">1</hprls:area>
+    <hprls:heapspaces xmlns:hprls="http://www.hprls.com/XMLSchema/hprlsZero">
+      <hprls:heapspace>
+        <spirit:name>port0</spirit:name>
+        <spirit:value>0</spirit:value>
+      </hprls:heapspace>
+    </hprls:heapspaces>
+  </spirit:vendorExtensions>
+</spirit:component>

@@ -7,6 +7,19 @@ using System;
 // basis defn:
 // State[i] = amplitude of state i expressed as binary number.
 
+// let's have a circut data structure.
+// gate: using gate = Tuple<Matrix<Complex>, Matrix<Complex>, int> (Matrix, Inverse, arity)
+// circuit-stage: using cstage = List<Tuple<gate, List<int>>> list of gates and the qubits to apply to
+// circuit: List<cstage>
+
+// YOU CAN'T NEST DECLS. really?
+// using Operator = MathNet.Numerics.LinearAlgebra.Complex.DenseMatrix;
+// // (Matrix, Inverse, arity)
+// using Gate = System.Tuple<Operator, Operator, int>;
+// // list of gates and the qubits to apply to
+// using CStage = System.Collections.Generic.List<System.Tuple<Gate, System.Collections.Generic.List<int>>>;
+// using Circuit = System.Collections.Generic.List<CStage>;
+
 class Hello 
 {
   static int Nqubits = 2;
@@ -53,6 +66,9 @@ class Hello
   }
   
   static Matrix<Complex> Hm = Matrix<Complex>.Build.DenseOfArray( new Complex[,] {{ 1.0, 1.0 }, { 1.0, -1.0 }}) / Math.Sqrt(2);
+  
+  static Matrix<Complex> Im = Matrix<Complex>.Build.DenseIdentity(2);
+
 
   // we never need to operate on full states, as we know it's only basis states.
   // after operating, probably not in a basis anymore!
@@ -61,7 +77,7 @@ class Hello
     return instate * Hm;
   }
   
-  // makes copies of the vectors passed in, as this is a terrible way to do this.
+  // makes copies of the vectors passed in, as this is a terrible way to do this. really.
   static Vector<Complex> KronProd(Vector<Complex>[] states) {
     Matrix<Complex> retval = Matrix<Complex>.Build.Dense(1, 1, 1);
     foreach (var state in states) {
@@ -72,6 +88,8 @@ class Hello
   
   static void Main() 
   {
+    gate Hademard = new gate(Hm, Hm, 1);
+    // gate identity = new gate()
     var S = Vector<Complex>.Build; // implicit elementwise multiplication with the vector of basis states.
     // var Sm = Matrix<Complex>.Build; // implicit elementwise multiplication with the vector of basis states. Matrix for KronProduct.
     // var Sm = MathNet.Numerics.LinearAlgebra.Complex.DenseMatrix.OfColumnVectors;

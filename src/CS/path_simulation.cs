@@ -1,8 +1,15 @@
 using System.Numerics;
 using MathNet.Numerics.LinearAlgebra;
 using System.Collections;
+using System.Collections.Generic;
 // A Hello World! program in C#.
 using System;
+using System.Linq;
+
+// C#: sometimes you want to call a spoon a spoon, not a Object<Utensil<Fluids>> - even this is too discriptive!
+// spoon in C#:
+//       x,     y,     z,     Parts (handle, bowl etc) with mass
+// Tuple<float, float, float, List<Tuple<String, float>>>
 
 // basis defn:
 // State[i] = amplitude of state i expressed as binary number.
@@ -20,6 +27,52 @@ using System;
 // using CStage = System.Collections.Generic.List<System.Tuple<Gate, System.Collections.Generic.List<int>>>;
 // using Circuit = System.Collections.Generic.List<CStage>;
 
+// NOPE: non-trivial construtors. This works for things you build dynamiclly.
+// public class Operator : MathNet.Numerics.LinearAlgebra.Complex.DenseMatrix {}
+// public class Gate : System.Tuple<Operator, Operator, int> {}
+// public class CStage : System.Collections.Generic.List<System.Tuple<Gate, System.Collections.Generic.List<int>>> {}
+// public class Circuit : System.Collections.Generic.List<CStage> {}
+
+using Operator = MathNet.Numerics.LinearAlgebra.Matrix<System.Numerics.Complex>;
+// // (Matrix, Inverse, arity)
+using Gate = System.Tuple<
+  MathNet.Numerics.LinearAlgebra.Matrix<System.Numerics.Complex>, 
+  MathNet.Numerics.LinearAlgebra.Matrix<System.Numerics.Complex>, 
+  int
+>;
+// // list of gates and the qubits to apply to - look at the commented using for somthing readable
+using CStage = System.Collections.Generic.List<
+  System.Tuple<
+    System.Tuple<
+      MathNet.Numerics.LinearAlgebra.Matrix<System.Numerics.Complex>,
+      MathNet.Numerics.LinearAlgebra.Matrix<System.Numerics.Complex>, 
+      int>, 
+    System.Collections.Generic.List<int>
+  >
+>;
+
+using Circuit = System.Collections.Generic.List<
+  System.Collections.Generic.List<
+    System.Tuple<
+      System.Tuple<
+        MathNet.Numerics.LinearAlgebra.Matrix<System.Numerics.Complex>, MathNet.Numerics.LinearAlgebra.Matrix<System.Numerics.Complex>, 
+        int>, 
+      System.Collections.Generic.List<int>
+    >
+  >
+>;
+
+// Type for a flattened circuit.
+using LinCircuit = System.Collections.Generic.List<
+  System.Tuple<
+    System.Tuple<
+      MathNet.Numerics.LinearAlgebra.Matrix<System.Numerics.Complex>, MathNet.Numerics.LinearAlgebra.Matrix<System.Numerics.Complex>, 
+      int>, 
+    System.Collections.Generic.List<int>
+  >
+>;
+
+
 class Hello 
 {
   static int Nqubits = 2;
@@ -36,7 +89,6 @@ class Hello
       bitArray.CopyTo(array, 0);
       return array[0];
   }
-
   
   static String StateRepr(int s) {
     String sBits = Convert.ToString(s, 2).PadLeft(Nqubits, '0');
@@ -86,18 +138,74 @@ class Hello
     return retval.Column(0);
   }
   
+  // generates the possible pred gates of state from a gate involving the given qubits.
+  static List<int> possiblePredecessorStates(int state, List<int> qubits) {
+    List<int> poss = new List<int>{};
+    
+    // we want all posible combinations of the bits refered to by the locations in qubits.
+    var substutions = Enumerable.Range(0, 1<<qubits.Count);
+    foreach (int sub in substutions) {
+      BitArray state_bits = new BitArray(new int[] { state });
+      BitArray sub_bits = new BitArray(new int[] { sub });
+      for (int i=0; i<qubits.Count; i++) {
+        state_bits[qubits[i]] = sub_bits[i];
+      }
+      int new_pred_state = getIntFromBitArray(state_bits);
+      poss.Add(new_pred_state);
+    }
+    return poss;
+  }
+  
+  static Complex calcAmp(int neighbour, int initalState, LinCircuit remainder) {
+    if (remainder.Count == 0) {
+      return neighbour == initalState ? 1.0 : 0.0; // no calculation to do
+    }
+    return 0.0;
+    
+  }
+  
   static void Main() 
   {
-    gate Hademard = new gate(Hm, Hm, 1);
-    // gate identity = new gate()
-    var S = Vector<Complex>.Build; // implicit elementwise multiplication with the vector of basis states.
-    // var Sm = Matrix<Complex>.Build; // implicit elementwise multiplication with the vector of basis states. Matrix for KronProduct.
-    // var Sm = MathNet.Numerics.LinearAlgebra.Complex.DenseMatrix.OfColumnVectors;
+    Gate Hademard = new Gate(Hm, Hm, 1);
+    Gate Idty = new Gate(Im, Im, 1);
+    
+    // lets just do th recursive bit!
+    // target state: 
+    int target = 2; // should be sqrt(2)+0i amplitude.
+    
+    CStage first_stage = new CStage{Tuple.Create(Hademard, new List<int> {0}), 
+                                    Tuple.Create(Idty, new List<int> {1}) };
+                                    
+    // Circuit c = new Circuit{ new List<CStage> {first_stage} };
+    // 
+    // LinCircuit c_flat = new LinCircuit{};
+    // foreach (var stage in c) {
+    // }
+    // foreach (var gate_bit_tple in stage) {
+    //   c_flat.Add(gate_bit_tple);
+    // }
+    
+    LinCircuit c_flat = new LinCircuit{Tuple.Create(Hademard, new List<int> {0}), Tuple.Create(Idty, new List<int> {1})}; // H on bit 0, then idty on bit 1. all trivial gates for now.
 
+    // 
+    // // gate identity = new gate()
+    // var S = Vector<Complex>.Build; // implicit elementwise multiplication with the vector of basis states.
+    // // var Sm = Matrix<Complex>.Build; // implicit elementwise multiplication with the vector of basis states. Matrix for KronProduct.
+    // // var Sm = MathNet.Numerics.LinearAlgebra.Complex.DenseMatrix.OfColumnVectors;
+    // 
+    // // a state is a single elemnet of the basis: a integer.
+    // int current_state = 1; // |01> initally!
+    // Complex CurAmp = 1.0;
+    // 
+    // foreach (var stage in c) {
+    //   foreach (var gate_ in first_stage) {
+    //     // we need to process for each possible input sta
+    //   }
+    //   // we have a list of gates - nned the qubits for those gates.
+    // 
+    // }
     
-    // a state is a single elemnet of the basis: a integer.
-    int inital_state = 1; // |01>
-    
+    int inital_state = 1;
     // first gate set: [H, I].
     var first_qubit_after_gates = H(partial_trace(inital_state, new int[] {0}));
     var second_qubit_after_gates = partial_trace(inital_state, new int[] {1});

@@ -19,13 +19,23 @@ build:
 
 packages:
 	mono nuget.exe install MathNet.Numerics -Pre -OutputDirectory packages
+	mono nuget.exe install MathNet.Numerics.FSharp -Pre -OutputDirectory packages
 
 # /r:$(KDLL) /r:$(KRDLL)
-build/path_simulation.exe: src/CS/path_simulation.cs build packages
-	mcs -sdk:4.6 -unsafe src/CS/path_simulation.cs -r /usr/lib/mono/4.6.1-api/System.Numerics.dll -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -o build/path_simulation.exe
+build/QLib.dll: src/CS/QLib.cs build packages
+	mcs -sdk:4.6 -unsafe -t:library src/CS/QLib.cs -r /usr/lib/mono/4.6.1-api/System.Numerics.dll -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -o build/QLib.dll
+
+
 
 run: build/path_simulation.exe
 	MONO_PATH=$(MPATH) build/path_simulation.exe
 
 clean:
 	rm -rf build
+
+deepclean: clean
+	rm -rf packages
+
+
+build/path_simulation.exe: src/FS/path_simulation.fs build/QLib.dll build packages
+	fsharpc -o build/path_simulation.exe --target:exe src/FS/path_simulation.fs -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r build/QLib.dll

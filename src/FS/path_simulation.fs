@@ -32,10 +32,10 @@ let applyGate (op : operator) (bits : int []) (s : state) : (state * Complex) li
   let resultant_states : state list = List.map (insertBits s bits) [0..1<<<bits.Length-1]
   List.zip resultant_states resultant_amplitudes
   
-
+// This dies the real meat of the calculation.
 let rec calcAmp (remaining_circuit : circuit) (initalstate : state) (currstate : state) : Complex =
   match remaining_circuit with
-    | [] -> if currstate = initalstate
+    | [] -> if currstate = initalstate // rec. base case
             then ZeroIm 1.0
             else ZeroIm 0.0
     | (op, bits)::tt  ->
@@ -45,17 +45,19 @@ let rec calcAmp (remaining_circuit : circuit) (initalstate : state) (currstate :
                                                   currstate, 
                                                   bits)
                                               )
-            // each predecessor state can result in a range of further states.
+            // each predecessor state can result in a range of further states. They are returned as a list of state*amplitude pairs, and the amplitude depends on the pred state we are calculating for
             let resultant_state_amplitudes : (state * Complex) list list = List.map (applyGate op bits) predecessors
                         
             let predecessor_amplitudes : Complex list = List.map (calcAmp tt initalstate) predecessors
             
             let apply_pred_factor (factor : Complex) (states : (state * Complex) list) : (state * Complex) list = 
               List.map (fun (s, a) -> (s, a*factor)) states
-              
+            
+            // we need to scale the possible observed basis states by the amplitude of the state that lead to it
             let resultant_state_amplitudes_scaled : (state * Complex) list list = 
               List.map (fun (fact, states) -> apply_pred_factor fact states) (List.zip predecessor_amplitudes resultant_state_amplitudes)
             
+            // pick out the state we curenttly care about.
             let resultant_state_amplitude = List.map (List.filter (fun (s, _) -> s = currstate)) resultant_state_amplitudes_scaled
             
             let amp = List.fold (fun acc (_,a) -> a+acc) (ZeroIm 0.0) (List.concat resultant_state_amplitude)
@@ -63,7 +65,7 @@ let rec calcAmp (remaining_circuit : circuit) (initalstate : state) (currstate :
             amp
 
 
-let simple_circuit : circuit = (I, [|1|]) :: (H, [|0|]) :: []
+let simple_circuit : circuit = (H, [|0|]) :: (I, [|1|]) :: (H, [|0|]) :: []
 
 let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (calcAmp simple_circuit 1 s) ) 
                  [0..(1<<<Nqubits)-1]

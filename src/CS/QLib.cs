@@ -4,7 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 // A Hello World! program in C#.
 using System;
-
+using System.Linq;
 namespace QLib
 {
 
@@ -31,7 +31,7 @@ namespace QLib
     // take the partial trace over the basis state. 
     // returns a convetional state representation with the selected state amplitude 1+0j.
     // This only makes sense in the path integral formulation - this way of reducing the state discards all mutual information.
-    static Vector<Complex> partial_trace(int state, int[] qubits) {
+    public static Vector<Complex> partial_trace(int state, int[] qubits) {
       BitArray state_bits = new BitArray(new int[] { state });
       BitArray traced_state_bits = new BitArray(qubits.Length);
       
@@ -48,9 +48,20 @@ namespace QLib
       );
       return traced_state_vector;
     }
+    
+    public static int insertBit(int orginal, int[] qubits, int insert) {
+      BitArray orginal_b = new BitArray(new int[] { orginal });
+      BitArray insert_b = new BitArray(new int[] { insert });
+      
+      for (int i=0; i<qubits.Length; i++) {
+        orginal_b[qubits[i]] = insert_b[i];
+      }
+      
+      return getIntFromBitArray(orginal_b);
+    }
 
     // makes copies of the vectors passed in, as this is a terrible way to do this. really.
-    static Vector<Complex> KronProd(Vector<Complex>[] states) {
+    public static Vector<Complex> KronProd(Vector<Complex>[] states) {
       Matrix<Complex> retval = Matrix<Complex>.Build.Dense(1, 1, 1);
       foreach (var state in states) {
         retval = retval.KroneckerProduct(MathNet.Numerics.LinearAlgebra.Complex.DenseMatrix.OfColumnVectors(new Vector<Complex>[] { state } ));
@@ -59,14 +70,14 @@ namespace QLib
     }
     
     // generates the possible pred gates of state from a gate involving the given qubits.
-    static List<int> possiblePredecessorStates(int state, List<int> qubits) {
+    public static List<int> possiblePredecessorStates(int state, int[] qubits) {
       List<int> poss = new List<int>{};
       
       // we want all posible combinations of the bits refered to by the locations in qubits.
-      for (int sub=0; sub<1<<qubits.Count; sub++) {
+      for (int sub=0; sub< 1<<qubits.Length; sub++) {
         BitArray state_bits = new BitArray(new int[] { state });
         BitArray sub_bits = new BitArray(new int[] { sub });
-        for (int i=0; i<qubits.Count; i++) {
+        for (int i=0; i<qubits.Length; i++) {
           state_bits[qubits[i]] = sub_bits[i];
         }
         int new_pred_state = getIntFromBitArray(state_bits);

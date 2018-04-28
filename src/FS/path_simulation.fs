@@ -13,10 +13,17 @@ type state = int // bitstring really
 // Op defns
 
 let ZeroIm (v : float) : Complex = Complex(v, 0.0)
+let ZeroImI (v : int) : Complex = Complex(float(v), 0.0)
 
 let H1d : Complex [] = Array.map ZeroIm [| 1.0; 1.0; 1.0; -1.0 |]
 let H : operator = DenseMatrix.Create(2, 2, fun x y -> H1d.[x+2*y] / (ZeroIm (sqrt 2.0)) ) 
 let I : operator = DenseMatrix.CreateDiagonal(2, 2, ZeroIm 1.0)
+
+let N1d : Complex [] = Array.map ZeroImI [| 1; 0; 0; 0;
+                                            0; 1; 0; 0;
+                                            0; 0; 0; 1;
+                                            0; 0; 1; 0 |]
+let CNOT : operator = DenseMatrix.Create(4, 4, fun x y -> N1d.[x+4*y]) 
 
 // show the mapping from ints to basis kets
 // let _ = List.map (fun s -> printfn "%s" (Qlib.StateRepr(s, Nqubits))) [0..(1<<<Nqubits)-1]
@@ -28,12 +35,15 @@ let insertBits (orignal : state) qubits (insert : state) : state = Qlib.insertBi
 let applyGate (op : operator) (bits : int []) (s : state) : (state * Complex) list =
   let input = Qlib.partial_trace(s, bits)
   let resultant = input * op // resultant is vector in the subspace
-  let resultant_amplitudes = List.map (fun i -> resultant.[i]) [0..1<<<bits.Length-1]
-  let resultant_states : state list = List.map (insertBits s bits) [0..1<<<bits.Length-1]
+  // let resultant_amplitudes = List.map (fun i -> resultant.[i]) [0..1<<<bits.Length-1]
+  let resultant_amplitudes = Seq.toList resultant
+  // printfn "resamp %A" resultant_amplitudes
+  let resultant_states : state list = List.map (insertBits s bits) [0..(1<<<bits.Length)-1]
   List.zip resultant_states resultant_amplitudes
   
 // This dies the real meat of the calculation.
 let rec calcAmp (remaining_circuit : circuit) (initalstate : state) (currstate : state) : Complex =
+  //printfn "    evaluating for state %A with %A remaining" (Qlib.StateRepr(currstate, Nqubits)) (remaining_circuit.Length)
   match remaining_circuit with
     | [] -> if currstate = initalstate // rec. base case
             then ZeroIm 1.0
@@ -47,8 +57,13 @@ let rec calcAmp (remaining_circuit : circuit) (initalstate : state) (currstate :
                                               )
             // each predecessor state can result in a range of further states. They are returned as a list of state*amplitude pairs, and the amplitude depends on the pred state we are calculating for
             let resultant_state_amplitudes : (state * Complex) list list = List.map (applyGate op bits) predecessors
-                        
+            
             let predecessor_amplitudes : Complex list = List.map (calcAmp tt initalstate) predecessors
+            
+            //let _ = printfn "        Possible pred states (and amp): %A" (List.map (fun (s, a : Complex) -> (Qlib.StateRepr(s, Nqubits), (a.Real))) (List.zip predecessors predecessor_amplitudes))
+            
+            //printfn "        Resultant state vector \n%A " resultant_state_amplitudes
+
             
             let apply_pred_factor (factor : Complex) (states : (state * Complex) list) : (state * Complex) list = 
               List.map (fun (s, a) -> (s, a*factor)) states
@@ -65,7 +80,7 @@ let rec calcAmp (remaining_circuit : circuit) (initalstate : state) (currstate :
             amp
 
 
-let simple_circuit : circuit = (H, [|0|]) :: (I, [|1|]) :: (H, [|0|]) :: []
+let simple_circuit : circuit =  (CNOT, [|1; 0|]) :: (H, [|0|]) :: []
 
 let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (calcAmp simple_circuit 1 s) ) 
                  [0..(1<<<Nqubits)-1]

@@ -1,3 +1,4 @@
+open Demo.qdefs
 open MathNet.Numerics.LinearAlgebra.Complex
 open System.Numerics
 open Microsoft.FSharp.Collections
@@ -6,24 +7,11 @@ open QLib // cannot use open on static classes, as C# etc
 let Nqubits = 2
 
 // Haskell could define a constant in type-land for number of qubits, that this lot could depend upon
-type operator = DenseMatrix // complex due to the typedef
-type circuit = (operator * int []) list // op acting on qubits, list. 
 type state = int // bitstring really
 
 // Op defns
 
-let ZeroIm (v : float) : Complex = Complex(v, 0.0)
-let ZeroImI (v : int) : Complex = Complex(float(v), 0.0)
 
-let H1d : Complex [] = Array.map ZeroIm [| 1.0; 1.0; 1.0; -1.0 |]
-let H : operator = DenseMatrix.Create(2, 2, fun x y -> H1d.[x+2*y] / (ZeroIm (sqrt 2.0)) ) 
-let I : operator = DenseMatrix.CreateDiagonal(2, 2, ZeroIm 1.0)
-
-let N1d : Complex [] = Array.map ZeroImI [| 1; 0; 0; 0;
-                                            0; 1; 0; 0;
-                                            0; 0; 0; 1;
-                                            0; 0; 1; 0 |]
-let CNOT : operator = DenseMatrix.Create(4, 4, fun x y -> N1d.[x+4*y]) 
 
 // show the mapping from ints to basis kets
 // let _ = List.map (fun s -> printfn "%s" (Qlib.StateRepr(s, Nqubits))) [0..(1<<<Nqubits)-1]
@@ -41,7 +29,7 @@ let applyGate (op : operator) (bits : int []) (s : state) : (state * Complex) li
   let resultant_states : state list = List.map (insertBits s bits) [0..(1<<<bits.Length)-1]
   List.zip resultant_states resultant_amplitudes
   
-// This dies the real meat of the calculation.
+// This does the real meat of the calculation.
 let rec calcAmp (remaining_circuit : circuit) (initalstate : state) (currstate : state) : Complex =
   //printfn "    evaluating for state %A with %A remaining" (Qlib.StateRepr(currstate, Nqubits)) (remaining_circuit.Length)
   match remaining_circuit with
@@ -79,8 +67,12 @@ let rec calcAmp (remaining_circuit : circuit) (initalstate : state) (currstate :
             // printfn "resultant amplitude for %A:%A" currstate amp
             amp
 
+let inital_state : state = 0
+printfn "inital state:"
+let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (if s = inital_state then ZeroImI 1 else ZeroImI 0)) 
+                 [0..(1<<<Nqubits)-1]
 
-let simple_circuit : circuit =  (CNOT, [|1; 0|]) :: (H, [|0|]) :: []
 
+printfn "final state:"
 let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (calcAmp simple_circuit 1 s) ) 
                  [0..(1<<<Nqubits)-1]

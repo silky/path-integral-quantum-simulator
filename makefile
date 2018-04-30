@@ -30,6 +30,10 @@ build/QLib.dll: src/CS/QLib.cs build packages
 run: build/path_simulation.exe
 	MONO_PATH=$(MPATH) build/path_simulation.exe
 
+run-direct: build/direct_calculation.exe
+	MONO_PATH=$(MPATH) build/direct_calculation.exe
+
+
 clean:
 	rm -rf build
 
@@ -37,5 +41,11 @@ deepclean: clean
 	rm -rf packages
 
 
-build/path_simulation.exe: src/FS/path_simulation.fs build/QLib.dll build packages
-	fsharpc -o build/path_simulation.exe --target:exe src/FS/path_simulation.fs -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r build/QLib.dll
+build/path_simulation.exe: src/FS/path_simulation.fs build/QLib.dll build/demo.dll build packages
+	fsharpc -o build/path_simulation.exe --target:exe src/FS/path_simulation.fs -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r build/QLib.dll -r build/demo.dll
+	
+build/direct_calculation.exe: src/FS/direct_calculation.fs build/QLib.dll build/demo.dll build packages
+	fsharpc -o build/direct_calculation.exe --target:exe src/FS/direct_calculation.fs -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r build/QLib.dll -r build/demo.dll
+
+build/demo.dll: src/FS/demo.fs build packages
+	fsharpc --target:library src/FS/demo.fs -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -o build/demo.dll

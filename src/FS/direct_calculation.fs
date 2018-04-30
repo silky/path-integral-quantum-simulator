@@ -10,9 +10,9 @@ type state = DenseVector // bitstring really
 
 let initalstate : state = DenseVector.Create(pown 2 Nqubits, fun i -> if i = 0 then ZeroIm 1.0 else ZeroIm 0.0)
 
-printfn "inital state:"
-let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (initalstate.[s]) ) 
-                 [0..(1<<<Nqubits)-1]
+//printfn "inital state:"
+//let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (initalstate.[s]) ) 
+//                 [0..(1<<<Nqubits)-1]
 
 
 let OpDim (op : operator) : int = int (floor (sqrt (float (op.RowCount))))
@@ -32,7 +32,7 @@ let OpAtIdx (op : operator) idx =
   // printfn "before matrix: %A" (before.ToTypeString())
   // printfn "after matrix: %A" (after.ToTypeString())
 
-  let ret : operator = DenseMatrix.OfMatrix(before.KroneckerProduct(op).KroneckerProduct(after))
+  let ret : operator = DenseMatrix.OfMatrix(after.KroneckerProduct(op).KroneckerProduct(before))
   ret
 
 // printfn "H acting on 0\n%A" (OpAtIdx H 0)
@@ -68,7 +68,8 @@ let op_expand (op, bits) =
 let direct_circuit : operator list = List.map op_expand simple_circuit
 
 let result_state = List.fold (*) initalstate (List.rev direct_circuit)
+printfn "done"
+//printfn "final state:"
+//let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (result_state.[s]) ) 
+//                 [0..(1<<<Nqubits)-1]
 
-printfn "final state:"
-let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (result_state.[s]) ) 
-                 [0..(1<<<Nqubits)-1]

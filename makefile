@@ -28,10 +28,10 @@ build/QLib.dll: src/CS/QLib.cs build packages
 
 
 run: build/path_simulation.exe
-	MONO_PATH=$(MPATH) build/path_simulation.exe
+	MONO_PATH=$(MPATH) time build/path_simulation.exe
 
 run-direct: build/direct_calculation.exe
-	MONO_PATH=$(MPATH) build/direct_calculation.exe
+	MONO_PATH=$(MPATH) time build/direct_calculation.exe
 
 
 clean:

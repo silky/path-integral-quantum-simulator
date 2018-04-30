@@ -3,15 +3,9 @@ open MathNet.Numerics.LinearAlgebra.Complex
 open System.Numerics
 open Microsoft.FSharp.Collections
 open QLib // cannot use open on static classes, as C# etc
+open System.Collections.Generic
 
-let Nqubits = 2
-
-// Haskell could define a constant in type-land for number of qubits, that this lot could depend upon
 type state = int // bitstring really
-
-// Op defns
-
-
 
 // show the mapping from ints to basis kets
 // let _ = List.map (fun s -> printfn "%s" (Qlib.StateRepr(s, Nqubits))) [0..(1<<<Nqubits)-1]
@@ -28,15 +22,23 @@ let applyGate (op : operator) (bits : int []) (s : state) : (state * Complex) li
   // printfn "resamp %A" resultant_amplitudes
   let resultant_states : state list = List.map (insertBits s bits) [0..(1<<<bits.Length)-1]
   List.zip resultant_states resultant_amplitudes
-  
+
+let cache = new Dictionary<_, _>()
+
 // This does the real meat of the calculation.
 let rec calcAmp (remaining_circuit : circuit) (initalstate : state) (currstate : state) : Complex =
   //printfn "    evaluating for state %A with %A remaining" (Qlib.StateRepr(currstate, Nqubits)) (remaining_circuit.Length)
+  
+  
   match remaining_circuit with
     | [] -> if currstate = initalstate // rec. base case
-            then ZeroIm 1.0
-            else ZeroIm 0.0
+              then ZeroIm 1.0
+              else ZeroIm 0.0
     | (op, bits)::tt  ->
+          let succ, v = cache.TryGetValue( (remaining_circuit, initalstate, currstate) )
+          if succ then             
+            v 
+          else
             // gets the ball of states that differ in the input to this gate
             let predecessors : state list = Seq.toList
                                               (Qlib.possiblePredecessorStates(
@@ -48,10 +50,9 @@ let rec calcAmp (remaining_circuit : circuit) (initalstate : state) (currstate :
             
             let predecessor_amplitudes : Complex list = List.map (calcAmp tt initalstate) predecessors
             
-            //let _ = printfn "        Possible pred states (and amp): %A" (List.map (fun (s, a : Complex) -> (Qlib.StateRepr(s, Nqubits), (a.Real))) (List.zip predecessors predecessor_amplitudes))
+            // let _ = printfn "        Possible pred states (and amp): %A" (List.map (fun (s, a : Complex) -> (Qlib.StateRepr(s, Nqubits), (a.Real))) (List.zip predecessors predecessor_amplitudes))
             
-            //printfn "        Resultant state vector \n%A " resultant_state_amplitudes
-
+            // printfn "        Resultant state vector \n%A " resultant_state_amplitudes
             
             let apply_pred_factor (factor : Complex) (states : (state * Complex) list) : (state * Complex) list = 
               List.map (fun (s, a) -> (s, a*factor)) states
@@ -60,19 +61,30 @@ let rec calcAmp (remaining_circuit : circuit) (initalstate : state) (currstate :
             let resultant_state_amplitudes_scaled : (state * Complex) list list = 
               List.map (fun (fact, states) -> apply_pred_factor fact states) (List.zip predecessor_amplitudes resultant_state_amplitudes)
             
+            // printfn "        scaled resultant amplitudes \n%A" resultant_state_amplitudes_scaled
+            
             // pick out the state we curenttly care about.
             let resultant_state_amplitude = List.map (List.filter (fun (s, _) -> s = currstate)) resultant_state_amplitudes_scaled
             
             let amp = List.fold (fun acc (_,a) -> a+acc) (ZeroIm 0.0) (List.concat resultant_state_amplitude)
             // printfn "resultant amplitude for %A:%A" currstate amp
+            cache.Add((remaining_circuit, initalstate, currstate), amp)
             amp
 
 let inital_state : state = 0
-printfn "inital state:"
-let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (if s = inital_state then ZeroImI 1 else ZeroImI 0)) 
-                 [0..(1<<<Nqubits)-1]
+//printfn "inital state:"
+//let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (if s = inital_state then ZeroImI 1 else ZeroImI 0)) 
+//                 [0..(1<<<Nqubits)-1]
 
 
 printfn "final state:"
-let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (calcAmp simple_circuit 1 s) ) 
-                 [0..(1<<<Nqubits)-1]
+//let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (calcAmp simple_circuit inital_state s) ) 
+//                 [0..(1<<<Nqubits)-1]
+
+let _ = List.map (fun s -> (calcAmp simple_circuit inital_state s)) [0..(1<<<Nqubits)-1]
+printfn "done"
+
+//let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (calcAmp simple_circuit inital_state s) ) 
+//                 (1 :: [])
+
+

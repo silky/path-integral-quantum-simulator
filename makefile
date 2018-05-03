@@ -15,7 +15,7 @@ MFLAGS=--profile=log:sample,report
 RESTRICT_FLAG=-max-no-int-divs=1 -max-no-fp-divs=1 -max-no-int-muls=1 -max-no-fp-muls=1 -max-no-fp-addsubs=1
 
 SYSC=/media/psf/Home/Projects/ACS/P35/systemc-2.3.2
-CPPFLAGS=-DSC_CPLUSPLUS=199701L -DSC_DISABLE_API_VERSION_CHECK=1 -Wno-unused-variable
+CPPFLAGS=-std=c++14 -DSC_CPLUSPLUS=201402L -DSC_DISABLE_API_VERSION_CHECK=0 -Wno-unused-variable
 ### SOFTWARE
 
 build:
@@ -60,7 +60,7 @@ build/demo.dll: src/FS/demo.fs build packages
 ## TLM model
 
 build/model: src/cpp/model.cpp build
-	g++ -std=gnu++11 $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ src/cpp/model.cpp -o build/model
+	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ src/cpp/model.cpp -o build/model
 
 # Hardware stuff
 

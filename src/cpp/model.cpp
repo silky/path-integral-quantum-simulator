@@ -1,5 +1,4 @@
 // Needed for the simple_target_socket
-#define NQUBITS 2
 #define SC_INCLUDE_DYNAMIC_PROCESSES
 
 #include "systemc"
@@ -12,14 +11,6 @@ using namespace std;
 #include "tlm_utils/simple_target_socket.h"
 
 #include <complex>
-#include <bitset>
-
-constexpr int NSTATES = (1<<NQUBITS)-1;
-
-typedef complex<float> amp_t;
-amp_t sqrt22 = {.real=sqrt(2)/2.0, .imag=0.0};
-
-typedef bitset<NQUBITS> state_t;
 
 typedef struct Hinput {
   int ID;
@@ -35,31 +26,6 @@ typedef struct Houtput {
 typedef union Htxn { Hinput_t in; Houtput_t out; } Htxn_t; // used for a operator action - represents both the action and the output - As transactional modelling is super directed twards memory access
 
 
-enum gatelib { H, CNOT };
-typedef struct gate { gatelib g; int arity; int *qubits; } gate_t;
-typedef vector<gate> circuit;
-
-vector<state_t> StateBall(state_t state, vector<int> qubits) {
-  vector<state_t> stateball;
-  state_t newstate;
-  for (state_t subset=0; subset.to_ulong()<NSTATES; subset = subset.to_ulong() + 1) {
-    for (int idx=0; idx<NQUBITS; idx++) {
-
-      // build the new state to insert
-      ptrdiff_t replace_idx = find(qubits.begin(), qubits.end(), idx) - qubits.begin();
-      if ( replace_idx != (qubits.end()-qubits.begin()) ) {
-        // this bit is present in the vector.
-        newstate[idx] = subset[replace_idx];
-      } else {
-        newstate[idx] = state[idx]; // it's always the same subset of changed bits so we can skip this, but clarity is good
-      }
-    }
-    stateball.push_back( newstate );
-  }
-  return stateball;
-}
-
-
 struct FindAmp : sc_module {
   // socket for the hadamard gate
   tlm_utils::simple_initiator_socket<FindAmp, sizeof(Htxn_t)> socket;
@@ -69,12 +35,6 @@ struct FindAmp : sc_module {
     SC_THREAD(thread_process);
   }
 
-  state_t inital_state = 0; //
-  int first_qubit[1] = {0}; // for specifing a single qubit gate.
-  circuit c = {
-      (gate_t){H, 1, first_qubit},
-      (gate_t){H, 1, first_qubit}
-  };
   // layer 0: inital state, 1: after first gate applied, etc.
 
   void thread_process() {

@@ -5,7 +5,7 @@
 #include <vector>
 #include <complex>
 
-#define NQUBITS 2
+#define NQUBITS 4
 #define DEBUG 0
 
 using namespace std;
@@ -22,9 +22,15 @@ typedef struct gate { gatelib g; int arity; vector<int> qubits; } gate_t;
 typedef vector<gate> circuit_t;
 
 static vector<int> first_qubit = {0}; // for specifing a single qubit gate.
+static vector<int> snd_qubit = {1}; // for specifing a single qubit gate.
+
 static circuit_t circuit = {
     (gate_t){H, 1, first_qubit},
-    (gate_t){H, 1, first_qubit}
+    (gate_t){H, 1, snd_qubit},
+    (gate_t){H, 1, snd_qubit},
+    (gate_t){H, 1, snd_qubit},
+    (gate_t){H, 1, snd_qubit},
+    (gate_t){H, 1, snd_qubit}
 };
 
 vector<state_t> StateBall(state_t, vector<int>);
@@ -34,6 +40,7 @@ state_t bitextract(state_t, vector<int>);
 string StateRepr(state_t);
 
 vector<amp_t> Happly(state_t, amp_t);
+amp_t HapplySlice(state_t, amp_t, state_t);
 
 amp_t CalcAmp(circuit_t, state_t, state_t);
 

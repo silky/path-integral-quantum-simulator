@@ -9,7 +9,7 @@ using namespace std;
 vector<state_t> StateBall(state_t state, vector<int> qubits) {
   vector<state_t> stateball;
   state_t newstate;
-  for (state_t subset=0; subset.to_ulong()<NSTATES-2; subset = subset.to_ulong() + 1) {
+  for (state_t subset=0; subset.to_ulong()<=qubits.size(); subset = subset.to_ulong() + 1) {
     for (int idx=0; idx<NQUBITS; idx++) {
 
       // build the new state to insert
@@ -53,6 +53,20 @@ vector<amp_t> Happly(state_t in, amp_t inamp) {
     return ret;
 }
 
+amp_t HapplySlice(state_t in, amp_t inamp, state_t req) {
+    vector<amp_t> ret;
+    ret.reserve(2);
+    if (in.to_ulong() == 0) {
+        ret[0] = inamp * sqrt22;
+        ret[1] = inamp * sqrt22;
+    } else { // state down
+        ret[0] = inamp * sqrt22;
+        ret[1] = inamp * (-sqrt22);
+    }
+    return ret[req.to_ulong()];
+}
+
+
 
 amp_t CalcAmp(circuit_t remaining_circuit, state_t inital_state, state_t target_state) {
     if (DEBUG) 
@@ -77,12 +91,12 @@ amp_t CalcAmp(circuit_t remaining_circuit, state_t inital_state, state_t target_
     vector<amp_t> res_partial_state_after_gate;
     for (int i=0; i<predecessors.size(); i++) {
         if (current_gate.g == H) {
-            res_partial_state_after_gate = Happly((state_t)i, predecessor_amplitudes[i]);
+            resultant_amplitude += HapplySlice(bitextract(predecessors[i], current_gate.qubits),
+                                               predecessor_amplitudes[i], 
+                                               bitextract(target_state, current_gate.qubits));
         } else {
             cout << "UNSUPPORTED GATE! " << current_gate.g << endl;
         }
-        amp_t add_amp = res_partial_state_after_gate[bitextract(target_state, current_gate.qubits).to_ulong()];
-        resultant_amplitude += add_amp;
     }
     
     return resultant_amplitude;

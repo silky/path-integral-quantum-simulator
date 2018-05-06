@@ -11,11 +11,12 @@ VROOT=$(HPRLS)/hpr/hpr_ipblocks/cvip0
 PPRED=-I$(HPRLS)/kiwipro/kiwic/distro/support/performance_predictor
 # MPATH=$(HPRLS)/kiwipro/kiwic/distro/support
 MPATH=/home/parallels/Projects/ACS/qsim/packages/MathNet.Numerics.4.4.0/lib/net461/
-MFLAGS=--profile=log:sample,report
+#MFLAGS=--profile=log:sample,report
+MFLAGS=
 RESTRICT_FLAG=-max-no-int-divs=1 -max-no-fp-divs=1 -max-no-int-muls=1 -max-no-fp-muls=1 -max-no-fp-addsubs=1
 
 SYSC=/media/psf/Home/Projects/ACS/P35/systemc-2.3.2
-CPPFLAGS=-std=c++14 -DSC_CPLUSPLUS=201402L -DSC_DISABLE_API_VERSION_CHECK=0 -Wno-unused-variable -Wall
+CPPFLAGS=-std=c++14 -DSC_CPLUSPLUS=201402L -DSC_DISABLE_API_VERSION_CHECK=0 -Wno-unused-variable -Wall -g
 ### SOFTWARE
 
 build:
@@ -59,10 +60,10 @@ build/demo.dll: src/FS/demo.fs build packages
 
 ## TLM model
 
-build/model: src/cpp/model.cpp build
-	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ src/cpp/model.cpp -o build/model
+build/model: src/cpp/model.cpp src/cpp/algo.cpp src/cpp/algo.h build
+	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ src/cpp/model.cpp src/cpp/algo.cpp -o build/model
 
-build/cppexample: src/cpp/algo.cpp build
+build/cppexample: src/cpp/algo.cpp src/cpp/algo.h src/cpp/demo.cpp build
 	g++ $(CPPFLAGS) src/cpp/algo.cpp src/cpp/demo.cpp -Isrc/cpp/ -o build/cppexample
 
 

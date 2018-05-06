@@ -10,9 +10,9 @@ int main(void) {
     for (auto& prior_state : stateball) {
         cout << StateRepr(prior_state) << endl;
     }
-    state_t inital_state = 1;
-    cout << "final amplitude for " << StateRepr(inital_state) << " on HH:" << endl;
-    // cout << StateRepr(0) << ":" << CalcAmp(circuit, inital_state, 0) << endl;
+    state_t inital_state = 0;
+    cout << "final amplitude for init " << StateRepr(inital_state) << " on HH:" << endl;
+    //cout << StateRepr(2) << ":" << CalcAmp(circuit, inital_state, 2) << endl;
     for (int i=0; i<NSTATES; i++) {
         cout << StateRepr(i) << ":" << CalcAmp(circuit, inital_state, i) << endl;
     }

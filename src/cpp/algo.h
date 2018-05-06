@@ -24,13 +24,22 @@ typedef vector<gate> circuit_t;
 static vector<int> first_qubit = {0}; // for specifing a single qubit gate.
 static vector<int> snd_qubit = {1}; // for specifing a single qubit gate.
 
+// INDEXING REVERSED CURRENTLY - NQUBITS-1 is the 0th in quirk
 static circuit_t circuit = {
-    (gate_t){H, 1, first_qubit},
-    (gate_t){H, 1, snd_qubit},
-    (gate_t){H, 1, snd_qubit},
-    (gate_t){H, 1, snd_qubit},
-    (gate_t){H, 1, snd_qubit},
-    (gate_t){H, 1, snd_qubit}
+    (gate_t){H, 1, {0}},
+    (gate_t){H, 1, {1}},
+    (gate_t){H, 1, {2}},
+    (gate_t){H, 1, {3}},
+    
+    (gate_t){CNOT, 2, {0, 1}},
+    (gate_t){CNOT, 2, {1, 2}},
+    (gate_t){CNOT, 2, {2, 3}},
+
+
+    (gate_t){H, 1, {0}},
+    (gate_t){H, 1, {1}},
+    (gate_t){H, 1, {2}},
+    (gate_t){H, 1, {3}}
 };
 
 vector<state_t> StateBall(state_t, vector<int>);
@@ -41,6 +50,9 @@ string StateRepr(state_t);
 
 vector<amp_t> Happly(state_t, amp_t);
 amp_t HapplySlice(state_t, amp_t, state_t);
+
+vector<amp_t> CNOTapply(state_t, amp_t);
+amp_t CNOTapplySlice(state_t, amp_t, state_t);
 
 amp_t CalcAmp(circuit_t, state_t, state_t);
 

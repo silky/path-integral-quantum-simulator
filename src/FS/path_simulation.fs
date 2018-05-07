@@ -78,10 +78,10 @@ let inital_state : state = 0
 
 
 printfn "final state:"
-//let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (calcAmp simple_circuit inital_state s) ) 
-//                 [0..(1<<<Nqubits)-1]
+let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (calcAmp simple_circuit inital_state s) ) 
+                 [0..(1<<<Nqubits)-1]
 
-let _ = List.map (fun s -> (calcAmp simple_circuit inital_state s)) [0..(1<<<Nqubits)-1]
+// let _ = List.map (fun s -> (calcAmp simple_circuit inital_state s)) [0..(1<<<Nqubits)-1]
 printfn "done"
 
 //let _ = List.map (fun s -> printfn "%s : %A" (Qlib.StateRepr(s, Nqubits)) (calcAmp simple_circuit inital_state s) ) 

@@ -24,6 +24,22 @@ cmul a b = Amplitude{
 multiplier_mealy :: () -> (Amplitude, Amplitude) -> ((), Amplitude)
 multiplier_mealy _ (a, b) = ((), cmul a b)
 
+{-# ANN topEntity
+  (Synthesize
+    { t_name     = "cmult"
+    , t_inputs   = [
+        PortName "clk",
+        PortName "rst",
+        PortProduct "" [PortProduct "" [PortName "Areal", PortName "Aimag"],
+                        PortProduct "" [PortName "Breal", PortName "Bimag"]]
+      ]
+    , t_output  = PortProduct "" [
+                    PortName "Creal",
+                    PortName "Cimag"]
+
+
+    }) #-}
+
 topEntity   
   :: Clock System Source
   -> Reset System Asynchronous 

@@ -13,7 +13,7 @@ module qdefs =
   type operator = DenseMatrix // complex due to the typedef
   type circuit = (operator * int []) list // op acting on qubits, list. 
 
-  let Nqubits = 17
+  let Nqubits = 4
 
   // Gate lib: shared by both methods.
   let H1d : Complex [] = Array.map ZeroIm [| 1.0; 1.0; 1.0; -1.0 |]
@@ -36,9 +36,14 @@ module qdefs =
   // let simple_circuit : circuit =  (H, [|0|]) :: []
   
   let simple_circuit = List.concat (
-    (List.map (fun n -> (H, [|n|])) [0..Nqubits-1]) ::
-    (List.map (fun n -> (CNOT, [|n; n+1|])) [0..Nqubits-2]) :: 
-    (List.map (fun n -> (H, [|n|])) [0..Nqubits-1]) :: 
-    []
+    (List.map (fun n -> (H, [|n|])) [0..Nqubits-1]) :: []
     )
+
+  
+  // let simple_circuit = List.concat (
+  //   (List.map (fun n -> (H, [|n|])) [0..Nqubits-1]) ::
+  //   (List.map (fun n -> (CNOT, [|n; n+1|])) [0..Nqubits-2]) :: 
+  //   (List.map (fun n -> (H, [|n|])) [0..Nqubits-1]) :: 
+  //   []
+  //   )
   

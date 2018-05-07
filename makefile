@@ -60,7 +60,7 @@ build/demo.dll: src/FS/demo.fs build packages
 
 ## TLM model
 
-build/model: src/cpp/model.cpp src/cpp/algo.cpp src/cpp/algo.h build
+build/model: src/cpp/model.cpp src/cpp/algo.cpp src/cpp/algo.h src/cpp/loggingsocket.hpp build
 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ src/cpp/model.cpp src/cpp/algo.cpp -o build/model
 
 build/cppexample: src/cpp/algo.cpp src/cpp/algo.h src/cpp/demo.cpp build
@@ -83,3 +83,9 @@ test-hwblocks: clash cmul-test
 tests/fixedpttests: "tests/data.txt"
 	stack exec -- clash --make tests/createRomFile.hs
 	./createRomFile "tests/data.txt" "tests/fixedpttests"
+
+
+## Test stuff.
+
+bwplots:
+	python3 src/Python/socket_bandwidth_plot.py bwlog.csv 20us

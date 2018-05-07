@@ -5,8 +5,9 @@
 #include <vector>
 #include <complex>
 
-#define NQUBITS 4
+#define NQUBITS 6
 #define DEBUG 0
+#define BWLOG 1
 
 using namespace std;
 
@@ -30,16 +31,24 @@ static circuit_t circuit = {
     (gate_t){H, 1, {1}},
     (gate_t){H, 1, {2}},
     (gate_t){H, 1, {3}},
+    (gate_t){H, 1, {4}},
+    (gate_t){H, 1, {5}},
+
     
     (gate_t){CNOT, 2, {0, 1}},
     (gate_t){CNOT, 2, {1, 2}},
     (gate_t){CNOT, 2, {2, 3}},
+    (gate_t){CNOT, 2, {3, 4}},
+    (gate_t){CNOT, 2, {4, 5}},
 
 
     (gate_t){H, 1, {0}},
     (gate_t){H, 1, {1}},
     (gate_t){H, 1, {2}},
-    (gate_t){H, 1, {3}}
+    (gate_t){H, 1, {3}},
+    (gate_t){H, 1, {4}},
+    (gate_t){H, 1, {5}}
+
 };
 
 vector<state_t> StateBall(state_t, vector<int>);

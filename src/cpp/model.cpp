@@ -2,22 +2,24 @@
 #define SC_INCLUDE_DYNAMIC_PROCESSES
 
 #include <typeinfo>
-
+#include <fstream>
+#include <cassert>
 #include "systemc"
 using namespace sc_core;
 using namespace sc_dt;
 using namespace std;
 
 #include "algo.h"
+#include "loggingsocket.hpp"
 #include "tlm.h"
 #include "tlm_utils/simple_initiator_socket.h"
 #include "tlm_utils/simple_target_socket.h"
 
 #include <complex>
 
-#define N_H_OPS 8
+#define N_H_OPS 3
 // currently the parrell code assumes same no of blocks
-#define N_CNOT_OPS N_H_OPS
+#define N_CNOT_OPS 3
 
 // mirrors the HapplySlice func call
 typedef struct Hinput {
@@ -44,9 +46,9 @@ typedef Htxn_t CNOTtxn_t; // for now, it's just the same thing. If we get more
 
 struct FindAmp : sc_module {
   // socket for the hadamard gate
-  tlm_utils::simple_initiator_socket<
-      FindAmp, sizeof(Htxn_t), tlm::tlm_base_protocol_types> *sockets[N_H_OPS];
-  tlm_utils::simple_initiator_socket<FindAmp, sizeof(Htxn_t),
+  logging_socket<FindAmp, sizeof(Htxn_t), tlm::tlm_base_protocol_types>
+      *sockets[N_H_OPS];
+  logging_socket<FindAmp, sizeof(Htxn_t),
                                      tlm::tlm_base_protocol_types>
       *CNOTsocks[N_CNOT_OPS];
 
@@ -60,15 +62,15 @@ struct FindAmp : sc_module {
     for (int i = 0; i < N_H_OPS; i++) {
       char txt[20];
       sprintf(txt, "socket_H_%d", i);
-      sockets[i] = new tlm_utils::simple_initiator_socket<
-          FindAmp, sizeof(Htxn_t), tlm::tlm_base_protocol_types>(txt);
+      sockets[i] = new logging_socket<FindAmp, sizeof(Htxn_t),
+                                      tlm::tlm_base_protocol_types>(txt);
 
       init_txn(&transactions[i]);
     }
     for (int i = 0; i < N_CNOT_OPS; i++) {
       char txt[20];
       sprintf(txt, "socket_CNOT_%d", i);
-      CNOTsocks[i] = new tlm_utils::simple_initiator_socket<
+      CNOTsocks[i] = new logging_socket<
           FindAmp, sizeof(Htxn_t), tlm::tlm_base_protocol_types>(txt);
 
       init_txn(&transactions[N_H_OPS + i]);
@@ -171,6 +173,10 @@ struct FindAmp : sc_module {
         }
       }
       delay += delay_accumulator;
+      if (BWLOG) { // if we need good time data for the bandwidth graph
+          wait(delay);
+          delay = sc_time(0, SC_NS);
+      }
     }
 
     // we also need to do the localdelay dance here.
@@ -183,14 +189,14 @@ struct FindAmp : sc_module {
         resultant_amplitude += HapplySliceSC(
             bitextract(predecessors[i], current_gate.qubits),
             predecessor_amplitudes[i],
-            bitextract(target_state, current_gate.qubits), i, localdelay);
+            bitextract(target_state, current_gate.qubits), i-startidx, localdelay);
         delay += sc_time(5, SC_NS); // addition
         break;
       case CNOT:
         resultant_amplitude += CNOTapplySliceSC(
             bitextract(predecessors[i], current_gate.qubits),
             predecessor_amplitudes[i],
-            bitextract(target_state, current_gate.qubits), i, localdelay);
+            bitextract(target_state, current_gate.qubits), i-startidx, localdelay);
         delay += sc_time(5, SC_NS); // addition
         break;
       default:
@@ -202,8 +208,12 @@ struct FindAmp : sc_module {
         delay_accumulator = localdelay;
       }
     }
-    
+
     delay += delay_accumulator;
+    if (BWLOG) { // if we need good time data for the bandwidth graph
+        wait(delay);
+        delay = sc_time(0, SC_NS);
+    }
     return resultant_amplitude;
   }
 
@@ -212,29 +222,30 @@ struct FindAmp : sc_module {
     Htxn_t data = {
         .in = {.ID = 0, .state = in, .amplitude = inamp, .req = req}};
     transactions[idx].set_data_ptr(reinterpret_cast<unsigned char *>(&data));
+    assert(idx < N_H_OPS);
 
-    (*sockets[idx])
-        ->b_transport(transactions[idx], locdelay); // no momber named b_transport
+    sockets[idx]->b_transport(transactions[idx], locdelay);
 
     if (transactions[idx].is_response_error())
       SC_REPORT_ERROR("TLM-2", "Response error from b_transport");
     return data.out.amplitude;
   }
-  
+
   amp_t CNOTapplySliceSC(state_t in, amp_t inamp, state_t req, int idx,
-                      sc_time &locdelay) {
+                         sc_time &locdelay) {
     CNOTtxn_t data = {
         .in = {.ID = 0, .state = in, .amplitude = inamp, .req = req}};
-    transactions[idx+N_H_OPS].set_data_ptr(reinterpret_cast<unsigned char *>(&data));
+    transactions[idx + N_H_OPS].set_data_ptr(
+        reinterpret_cast<unsigned char *>(&data));
 
-    (*CNOTsocks[idx])
-        ->b_transport(transactions[idx+N_H_OPS], locdelay); // no momber named b_transport
+    assert(idx < N_CNOT_OPS);
+    CNOTsocks[idx]->b_transport(transactions[idx + N_H_OPS],
+                      locdelay); // no momber named b_transport
 
-    if (transactions[idx+N_H_OPS].is_response_error())
+    if (transactions[idx + N_H_OPS].is_response_error())
       SC_REPORT_ERROR("TLM-2", "Response error from b_transport");
     return data.out.amplitude;
   }
-
 };
 
 // Target module representing a Hadamard gate
@@ -287,7 +298,8 @@ struct CNOTop : sc_module {
     Hinput_t request = txn->in;
     Houtput_t reply;
 
-    amp_t result = CNOTapplySlice(request.state, request.amplitude, request.req);
+    amp_t result =
+        CNOTapplySlice(request.state, request.amplitude, request.req);
     reply.amplitude = result;
     reply.ID = request.ID;
 
@@ -297,7 +309,6 @@ struct CNOTop : sc_module {
     trans.set_response_status(tlm::TLM_OK_RESPONSE);
   }
 };
-
 
 SC_MODULE(Top) {
   FindAmp *amplitude_finder;
@@ -319,12 +330,26 @@ SC_MODULE(Top) {
       cnot_ops[i] = new CNOTop("CNOTop");
       amplitude_finder->CNOTsocks[i]->bind(cnot_ops[i]->socket);
     }
+  }
 
+  void print_bw() {
+    ofstream myfile;
+    myfile.open("bwlog.csv");
+    
+    for (int i = 0; i < N_H_OPS; i++) {
+        myfile << "H" << i << "," << amplitude_finder->sockets[i]->printlog() << endl;
+    }
+    for (int i = 0; i < N_CNOT_OPS; i++) {
+        myfile << "CNOT" << i << "," << amplitude_finder->CNOTsocks[i]->printlog() << endl;
+    }    
+    myfile.close();
   }
 };
 
 int sc_main(int argc, char *argv[]) {
   Top top("top");
   sc_start();
+  if (BWLOG)
+    top.print_bw();
   return 0;
 }

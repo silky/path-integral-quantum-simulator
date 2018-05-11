@@ -42,7 +42,7 @@ class CircuitOp {
     qubits = qubits_;
   }
 }
- 
+
 
 class s {
   public const uint BSIZE = 12;
@@ -204,32 +204,181 @@ class qsim
 
       return new Complex(realpart, imagpart);
     }
+
+    public unsafe struct WorkUnit  
+    {  
+      public int target;  
+      public int depth;
+      
+      public bool dep_done_0;
+      public bool dep_done_1;
+      public bool dep_done_2;
+      public bool dep_done_3;
+      
+      public int dep_target_0;
+      public int dep_target_1;
+      public int dep_target_2;
+      public int dep_target_3;
+
+      public Complex dep_amp_0;
+      public Complex dep_amp_1;
+      public Complex dep_amp_2;
+      public Complex dep_amp_3;
+    }
+    
+    static public void wuDefault(ref WorkUnit ret) {
+      ret.target = 0; ret.depth = 0;
+      ret.dep_done_0 = false; ret.dep_done_1 = false; ret.dep_done_2 = false; ret.dep_done_3 = false;
+      ret.dep_target_0 = 0; ret.dep_target_1 = 0; ret.dep_target_2 = 0; ret.dep_target_3 = 0;
+      ret.dep_amp_0 = zero; ret.dep_amp_1 = zero; ret.dep_amp_2 = zero; ret.dep_amp_3 = zero;
+    }
+
+    public static WorkUnit add_preds(ref WorkUnit current, CircuitOp gate) {
+      
+      int[] predecessors = state_ball(current.target, gate.qubits);
+      switch (gate.op)
+      {
+          case Op.H:
+              current.dep_done_0 = false; current.dep_done_1 = false;
+              current.dep_done_2 = true; current.dep_done_3 = true;
+              
+              current.dep_target_0 = predecessors[0]; current.dep_target_1 = predecessors[1];
+              current.dep_target_2 = 0; current.dep_target_3 = 0;
+              break;
+          case Op.CNOT:
+              current.dep_done_0 = false; current.dep_done_1 = false;
+              current.dep_done_2 = false; current.dep_done_3 = false;
+              
+              current.dep_target_0 = predecessors[0]; current.dep_target_1 = predecessors[1];
+              current.dep_target_2 = predecessors[0]; current.dep_target_3 = predecessors[1];
+              break;
+          default:
+            Console.WriteLine("UNKNOWN OPERATION!");
+            break;
+      }
+      return current;
+    }
+    
+    public static bool can_evaluate(WorkUnit current) {
+      return current.dep_done_0 & current.dep_done_1 & current.dep_done_2 & current.dep_done_3;
+    }
+    
+    public static Complex evaluate(WorkUnit current, CircuitOp current_gate) {
+      Complex resamp = zero;
+      
+      switch (current_gate.op)
+      {
+          case Op.H:
+            resamp = resamp + H_select(
+                                  partial_trace(current.dep_target_0, current_gate.qubits),
+                                  current.dep_amp_0,
+                                  partial_trace(current.target, current_gate.qubits));
+            
+            resamp = resamp + H_select(
+                                  partial_trace(current.dep_target_1, current_gate.qubits),
+                                  current.dep_amp_1,
+                                  partial_trace(current.target, current_gate.qubits));
+            break;
+          
+          case Op.CNOT:
+            resamp = resamp + CNOT_select(
+                                  partial_trace(current.dep_target_0, current_gate.qubits),
+                                  current.dep_amp_0,
+                                  partial_trace(current.target, current_gate.qubits));
+            
+            resamp = resamp + CNOT_select(
+                                  partial_trace(current.dep_target_1, current_gate.qubits),
+                                  current.dep_amp_1,
+                                  partial_trace(current.target, current_gate.qubits));
+            
+            resamp = resamp + CNOT_select(
+                                  partial_trace(current.dep_target_2, current_gate.qubits),
+                                  current.dep_amp_2,
+                                  partial_trace(current.target, current_gate.qubits));
+            
+            resamp = resamp + CNOT_select(
+                                  partial_trace(current.dep_target_3, current_gate.qubits),
+                                  current.dep_amp_3,
+                                  partial_trace(current.target, current_gate.qubits));
+
+            break;
+          default:
+            Console.WriteLine("UNKNOWN OPERATION!");
+            break;
+      }
+      return resamp;
+    }
+    
+    public static Complex CalcAmpFlat(CircuitOp[] remaining_circuit, int circuitpos, int inital_state, int target_state) {
+      int curridx = -1; // number of active elements in the queue.
+      WorkUnit[] worklist = new WorkUnit[16];
+      
+      CircuitOp current_gate = remaining_circuit[circuitpos-1];
+      // wuDefault(ref worklist[0]); // ref types don't work in Kiwi, fine
+      // WorkUnit firstelement = wuDefault();
+      worklist[0].target = target_state;
+      worklist[0].depth = circuitpos;
+      // add_preds(ref worklist[0], current_gate);
+      
+      
+      curridx = 0; // if -1, return.
+      WorkUnit current;
+      Complex lasteval;
+      // while (curridx > 0) { // valid indices for the work list
+      //   Kiwi.Pause();
+      //   current = worklist[curridx-1];
+      //   current_gate = remaining_circuit[curridx-1];
+      //   if (can_evaluate(current)) {
+      //     lasteval = evaluate(current, current_gate);
+      //     curridx -= 1; // pop off the stack.
+      //   } else {
+      //     Console.WriteLine("need to addd to the worklist, cant do that yet!");
+      //     curridx -= 1;
+      //   }
+      // }
+      
+      Console.WriteLine("RAN OFF THE END OF THE WORKLIST!");
+      return new Complex(0.0, 0.0);
+    }
+
     
     [Kiwi.HardwareEntryPoint]
     static void Main()
     {
-      Kiwi.Pause();
-      int five = 5;
       CircuitOp[] circuit = new CircuitOp[2];
       circuit[0] = new CircuitOp(Op.H, new int[] { 0 });
-      circuit[1] = new CircuitOp(Op.H, new int[] { 0 });
+      circuit[1] = new CircuitOp(Op.H, new int[] { 1 });
       
-      // Complex res = H_select(0, new Complex(1.0, 0.0), 0);
-      Complex res = CalcAmp(circuit, circuit.Length, 0, 0);
-      Console.WriteLine("H|0> on |0> is {0}", res.real);
+      // circuit[2] = new CircuitOp(Op.CNOT, new int[] { 1, 0 });
+      // 
+      // 
+      // circuit[3] = new CircuitOp(Op.H, new int[] { 0 });
+      // circuit[4] = new CircuitOp(Op.H, new int[] { 1 });
       
-      Console.WriteLine("0 with bit set at idx 1 is {0}", insert_bit(0, true, 1)  ); // true
-      
-      Console.WriteLine("0 with bit set at idx 1 is {0}", insert_bit(0, false, 1)  ); // false, does not clear the bit.
-      
-      Console.WriteLine("trace of 1 out of |010> is {0}", partial_trace(2, new int[] {1}));
+      int tgt=0;
+      Complex res = CalcAmpFlat(circuit, circuit.Length, 0, tgt);
+      Console.WriteLine("HH|{0}> on |0> is {1}", tgt, res.real);
+
 
       
-      Console.WriteLine("stateball for |000> on pos 1 is");
-      int[] stateball = state_ball(0, new int[] {1});
-      for (int i=0; i<stateball.Length; i++) {
-        Console.WriteLine("|{0}>", stateball[i]);
-      }
+      // Complex res = H_select(0, new Complex(1.0, 0.0), 0);
+      // for (int tgt=0; tgt<4; tgt++) {
+      //   Complex res = CalcAmp(circuit, circuit.Length, 2, tgt);
+      //   Console.WriteLine("H|{0}> on |2> is {1}", tgt, res.real);
+      // }
+      
+      // Console.WriteLine("0 with bit set at idx 1 is {0}", insert_bit(0, true, 1)  ); // true
+      // 
+      // Console.WriteLine("0 with bit set at idx 1 is {0}", insert_bit(0, false, 1)  ); // false, does not clear the bit.
+      // 
+      // Console.WriteLine("trace of 1 out of |010> is {0}", partial_trace(2, new int[] {1}));
+      // 
+      // 
+      // Console.WriteLine("stateball for |000> on pos 1 is");
+      // int[] stateball = state_ball(0, new int[] {1});
+      // for (int i=0; i<stateball.Length; i++) {
+      //   Console.WriteLine("|{0}>", stateball[i]);
+      // }
       done = true;
     }
 

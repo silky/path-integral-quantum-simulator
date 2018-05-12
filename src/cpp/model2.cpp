@@ -17,10 +17,6 @@ using namespace std;
 
 #include <complex>
 
-#define N_H_OPS 3
-// currently the parrell code assumes same no of blocks
-#define N_CNOT_OPS 3
-
 enum depstate { INIT, REQUESTED, COMPLETE, DONT_CARE };
 
 typedef struct workunit {
@@ -110,9 +106,34 @@ void print_worklist(vector<workunit_t> worklist) {
     }
 }
 
+struct PrintWorkLists : sc_module {
+    vector<workunit_t>& worklist;
+    sc_time delay = sc_time(10, SC_NS);
+        
+    typedef PrintWorkLists SC_CURRENT_USER_MODULE;
+    PrintWorkLists( ::sc_core::sc_module_name, vector<workunit_t>& worklist_ ) :  worklist(worklist_) {
+        SC_THREAD(thread_process);
+    }
+
+    
+    void thread_process() {
+        do { wait(sc_time(10, SC_NS)); } while (worklist.size() == 0);
+        
+        while (worklist.size() > 0) {
+            delay += sc_time(10, SC_NS);
+            print_worklist(worklist);
+            wait(delay);
+            delay = sc_time(0, SC_NS);
+        }
+    }
+};
+
 struct FindAmp : sc_module {
   // socket for the hadamard gate
   sc_time delay = sc_time(10, SC_NS);
+  vector<workunit_t> worklist;
+  
+  // tlm_utils::simple_target_socket<FindAmp> workrecv;
 
   SC_CTOR(FindAmp) {
     SC_THREAD(thread_process);
@@ -134,7 +155,6 @@ struct FindAmp : sc_module {
   amp_t CalcAmpSC(circuit_t remaining_circuit, state_t inital_state,
                   state_t target_state) {
                       
-    vector<workunit_t> worklist; 
     worklist.push_back({ 
                       .target = target_state, 
                       .depth  = remaining_circuit.size(),
@@ -146,7 +166,10 @@ struct FindAmp : sc_module {
     
     workunit_t wu;
     while (worklist.size() > 0) {
-        print_worklist(worklist);
+        // Realize the delay annotated onto the transport call
+        wait(delay);
+        delay = sc_time(0, SC_NS);
+        //print_worklist(worklist);
         
         workunit_t& wu = worklist.back();
         
@@ -161,6 +184,7 @@ struct FindAmp : sc_module {
         } else if (can_eval(wu)) {
             gate_t currentgate = remaining_circuit[wu.depth-1];
             amp_t amplitude = evaluate(wu, currentgate);
+            worklist.pop_back(); // remove this element, as we have completed it.
 
             if (wu.wu_dest == -1) { // this is the target state we were invoked for
                 return amplitude;
@@ -169,14 +193,8 @@ struct FindAmp : sc_module {
                 worklist[wu.wu_dest].deps[wu.wu_dst_pred_idx] = COMPLETE;
                 // cout << "propegation not impl, TODO" << endl;
             }
-            worklist.pop_back(); // remove this element, as we have completed it.
             
-        } else {
-            // DEBUG: check if we have allredy done any work on this state (should not!)
-            if (non_default(wu)) {
-                cout << "a work unit has come back around! oops!" << endl;
-            }
-            
+        } else if (!non_default(wu)) {            
             // need to add the deps to the list.
             // calculate pred states
             gate_t currentgate = remaining_circuit[wu.depth-1];
@@ -205,10 +223,13 @@ struct FindAmp : sc_module {
             }
             // cout << "cant evaluate, TODO" << endl;
             // break;
+        } else { // no work to do.
+            // pass! wait for the remote block to update some of our list.
         }
+        delay += sc_time(10, SC_NS);
     }
     
-    return (amp_t){9.9, 0.0};
+    return (amp_t){999.9, 999.9}; // 
   }
 
 
@@ -217,10 +238,12 @@ struct FindAmp : sc_module {
 
 SC_MODULE(Top) {
   FindAmp *amplitude_finder;
+  PrintWorkLists *printer;
 
   SC_CTOR(Top) {
     // Instantiate components
     amplitude_finder = new FindAmp("FindAmp");
+    printer = new PrintWorkLists("printer", amplitude_finder->worklist);
   }
 
   void print_bw() {

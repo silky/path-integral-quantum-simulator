@@ -5,7 +5,7 @@
 #include <vector>
 #include <complex>
 
-#define NQUBITS 4
+#define NQUBITS 2
 #define MAX_OP_SIZE 2
 #define DEBUG 0
 #define BWLOG 1
@@ -31,22 +31,22 @@ static vector<int> snd_qubit = {1}; // for specifing a single qubit gate.
 // INDEXING REVERSED CURRENTLY - NQUBITS-1 is the 0th in quirk
 static circuit_t circuit = {
     (gate_t){H, 1, {0}},
-    // (gate_t){H, 1, {1}},
+    (gate_t){H, 1, {1}},
     // (gate_t){H, 1, {2}},
     // (gate_t){H, 1, {3}},
     // (gate_t){H, 1, {4}},
     // (gate_t){H, 1, {5}},
 
     
-    // (gate_t){CNOT, 2, {0, 1}},
+    (gate_t){CNOT, 2, {0, 1}},
     // (gate_t){CNOT, 2, {1, 2}},
     // (gate_t){CNOT, 2, {2, 3}},
     // (gate_t){CNOT, 2, {3, 4}},
     // (gate_t){CNOT, 2, {4, 5}},
 
 
-    // (gate_t){H, 1, {0}}
-    // (gate_t){H, 1, {1}},
+    (gate_t){H, 1, {0}},
+    (gate_t){H, 1, {1}}
     // (gate_t){H, 1, {2}},
     // (gate_t){H, 1, {3}}
     // (gate_t){H, 1, {4}},

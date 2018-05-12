@@ -56,10 +56,10 @@ bool non_default(workunit_t wu) {
     return non_default;
 }
 
-
+// Integrates over the priors that can lead to this state.
 amp_t evaluate(workunit_t wu, gate_t gate) {
     amp_t resamp = {0.0, 0.0};
-    int n_preds = (1<<gate.qubits.size())-1;
+    int n_preds = (1<<gate.qubits.size());
     for (int i=0; i<n_preds; i++) {
         switch (gate.g) {
             case H:
@@ -82,6 +82,22 @@ amp_t evaluate(workunit_t wu, gate_t gate) {
     return resamp;
 }
 
+string print_priors(workunit_t wu) {
+    // if (!can_eval(wu)) {
+    //     return "NOT READY"
+    // }
+    ostringstream out;
+    for (int i=0; i<MAX_PRED_STATES; i++) {
+        if (wu.deps[i] == REQUESTED) {
+            out << StateRepr(wu.predecessors[i]) << ":NRDY ";
+        }
+        if (wu.deps[i] == COMPLETE) {
+            out << StateRepr(wu.predecessors[i]) << ":" << wu.amplitudes[i] << " ";
+        }
+    }
+    return out.str();
+}
+
 void print_worklist(vector<workunit_t> worklist) {
     cout << "worklist is now:" << endl;
     for (workunit_t wu : worklist) {
@@ -89,6 +105,7 @@ void print_worklist(vector<workunit_t> worklist) {
                  ", .deps=can_eval " << can_eval(wu) << " init " << non_default(wu) <<
                  ", .depth=" << wu.depth << 
                  ", .dest=" << wu.wu_dest << ", idx=" << wu.wu_dst_pred_idx << 
+                 ", .preds=" << print_priors(wu) <<
                  "}" << endl;
     }
 }
@@ -127,15 +144,6 @@ struct FindAmp : sc_module {
                       .wu_dest = -1 // return this value.
                   });
     
-    // worklist.push_back({ 
-    //                   .target = target_state, 
-    //                   .depth  = remaining_circuit.size(),
-    //                   .deps   = {COMPLETE, COMPLETE, DONT_CARE, DONT_CARE}, // just gonna rely on the first elem being 0.
-    //                   .predecessors = {0, 1}, // zero
-    //                   .amplitudes = { sqrt22, sqrt22 },
-    //                   .wu_dest = -1 // return this value.
-    //               });
-
     workunit_t wu;
     while (worklist.size() > 0) {
         print_worklist(worklist);

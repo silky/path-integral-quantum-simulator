@@ -68,6 +68,11 @@ static circuit_t circuit = {
     (gate_t){CNOT, 2, {0, 1}},
     (gate_t){CNOT, 2, {1, 2}},
     (gate_t){CNOT, 2, {2, 3}},
+    
+    (gate_t){CNOT, 2, {1, 0}},
+    (gate_t){CNOT, 2, {2, 1}},
+    (gate_t){CNOT, 2, {3, 2}},
+
     // (gate_t){CNOT, 2, {3, 4}},
     // (gate_t){CNOT, 2, {4, 5}},
 

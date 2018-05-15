@@ -162,7 +162,7 @@ struct Initiator : sc_module {
     state_t target = 0;
     state_t inital = 0;
     int replycount = 0;
-    vector<state_t> requests = {0, 1, 2, 3};
+    vector<state_t> requests = {0}; //, 1, 2, 3};
     
     SC_CTOR(Initiator) : socket("wu_gen") {
         socket.register_nb_transport_bw(this, &Initiator::nb_transport_bw);

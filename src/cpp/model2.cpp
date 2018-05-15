@@ -4,7 +4,8 @@
 #include <typeinfo>
 #include <fstream>
 #include <cassert>
-#include <queue>  
+#include <queue>
+#include <tuple>
 #include "systemc"
 using namespace sc_core;
 using namespace sc_dt;
@@ -205,6 +206,7 @@ struct Initiator : sc_module {
       cout << "final amplitude starting at " << StateRepr(inital)
            << " on circuit:" << endl;
       cout << StateRepr(wrecv_ptr->target) << ":" << wrecv_ptr->amplitude << endl;
+      cout << "finished at " << sc_time_stamp() << endl;
       
       if (replycount == requests.size())
           sc_stop();
@@ -281,6 +283,8 @@ struct FindAmp : sc_module {
   tlm_utils::simple_target_socket<FindAmp, sizeof(workreturn_t)> workreply; 
   tlm::tlm_generic_payload workrequestor_trans;
   int mindepth;
+  
+  vector<pair<sc_time, int>> worklist_sizes; // for util tracking.
 
   typedef FindAmp SC_CURRENT_USER_MODULE;
   FindAmp( ::sc_core::sc_module_name, int mindepth_ ) :  workrecv("upstream_recv"), 
@@ -323,6 +327,7 @@ struct FindAmp : sc_module {
     sc_time delay;
 
     while (1) { // wait for stuff to come to us!
+        worklist_sizes.push_back( (pair<sc_time, int>){sc_time_stamp(), worklist.size()} );
         wait(sc_time(10, SC_NS));
         
         if (!workrequest_queue.empty()) {
@@ -490,36 +495,80 @@ struct HeightDiv : sc_module {
 // perhaps be more specific? 
 // explicit tree. basic unit: (findamp, HeightDiv) pair.
 // be super basic:
-enum moduletypes { INITIATOR, FINDAMP, HEIGHTDIV, BASE };
 
-struct amp_connspec {
-    moduletypes type;
-    int idx; 
-};
-
-struct div_connspec {
-    moduletypes type;
-    int idx[2]; 
-};
-static const int n_amp_finders = 3;
-static const int n_divs = 1;
-static const int n_base_cases = 2;
-
-static const int ampdepths[n_amp_finders] = { 3, 0, 0 }; // same length as n_amp_finders
-static const amp_connspec ampconns[n_amp_finders] = { {HEIGHTDIV, 0}, {BASE, 0}, {BASE, 1} };
-static const div_connspec divconns[n_divs] = { {FINDAMP, {1, 2}} };
-
-
+#define MAX_MODULES 100
 SC_MODULE(Top) {
-  FindAmp *amplitude_finders[n_amp_finders];
-  HeightDiv *divs[n_divs];
-  BaseCase *basecases[n_base_cases];
+  FindAmp *amplitude_finders[MAX_MODULES];
+  HeightDiv *divs[MAX_MODULES];
+  BaseCase *basecases[MAX_MODULES];
   
 
   Initiator *init;
   PrintWorkLists *printer;
+  
+  int n_amp_finders; // = 3;
+  int n_divs; // = 1;
+  int n_base_cases; // = 2;
+  
+  int ampdepths[MAX_MODULES] = { 3, 0, 0 }; // same length as n_amp_finders
+  amp_connspec ampconns[MAX_MODULES];// = { {HEIGHTDIV, 0}, {BASE, 0}, {BASE, 1} };
+  div_connspec divconns[MAX_MODULES];//= { {FINDAMP, {1, 2}} };
+
+  moduletypes parsemod(string s) {
+      if (s == "INITIATOR ") {
+          return INITIATOR;
+      } else if (s == "FINDAMP") {
+          return FINDAMP;
+      } else if (s == "HEIGHTDIV") {
+          return HEIGHTDIV;
+      } else if (s == "BASE") {
+          return BASE;
+      } else {
+          cout << "could not parse module type spec \"" << s  << "\" (mabye there is whitespace?)" << endl;
+          exit(5);
+      }
+
+  }
+  
+  void parse_spec() {
+      ifstream config("config.cfg", ios::in);
+      string line;
+      getline(config, line);
+      n_amp_finders = std::stoi(line);
+      getline(config, line);
+      n_divs = std::stoi(line);
+      getline(config, line);
+      n_base_cases = std::stoi(line);
+      
+      moduletypes modtype;
+      int modidx;
+      for (int i=0; i<n_amp_finders; i++) {
+          std::getline(config, line, ','); // get depth
+          ampdepths[i] = std::stoi(line);
+          
+          std::getline(config, line, ','); // get connection type
+          modtype = parsemod(line);
+          std::getline(config, line); // get conn idx.
+          modidx = std::stoi(line); 
+          ampconns[i] = { modtype, modidx };
+      }
+      
+      int leftidx;
+      int rightidx;
+      for (int i=0; i<n_divs; i++) {
+          std::getline(config, line, ','); // get connection type
+          modtype = parsemod(line);
+          std::getline(config, line, ','); // get conn idx.
+          leftidx = std::stoi(line); 
+          std::getline(config, line); // get conn idx.
+          rightidx = std::stoi(line); 
+          divconns[i] = { modtype, {leftidx, rightidx} };
+      }
+
+  }
 
   SC_CTOR(Top) {
+    parse_spec();
     // Instantiate components
     for (int i=0; i<n_amp_finders; i++) {
         amplitude_finders[i] = new FindAmp("FindAmp", ampdepths[i]);
@@ -542,8 +591,8 @@ SC_MODULE(Top) {
     // it will process the first workunit whilst distributing the prev levels to lower.
     // this is slightly dumb but not a problem currently, just a counterintuative layering violation.
     // we could fix this in findamp by checking the level before enqueue, but this is probably a net loss. alt fix here by requesting to the right module, but this complicates networking needing 1 more port per findamp for no benifit x2.
-    init->socket.bind(amplitude_finders[0]->workrecv);
-    init->work_return.bind(amplitude_finders[0]->workret);
+    init->socket.bind(amplitude_finders[n_amp_finders-1]->workrecv);
+    init->work_return.bind(amplitude_finders[n_amp_finders-1]->workret);
 
     amp_connspec ampconn;
     // in Python I would solve this with ducktyping - not sure how to do the dynamic dispatch on a object of unknown type in cpp without the switch?
@@ -602,17 +651,38 @@ SC_MODULE(Top) {
         }
     }
   }
-
-  void print_bw() {
-    ofstream myfile;
-    myfile.open("bwlog.csv");
-    myfile.close();
+  
+  std::string sizelog(vector<pair<sc_time, int>>& log) {
+      ostringstream times;
+      ostringstream sizes;
+      for (auto& i : log) {
+          sc_time t = i.first;
+          times << i.first << ",";
+          sizes << i.second << ",";
+      }
+      return times.str() + "\n" + sizes.str();
   }
+  
+  void save_size_logs() {
+      ofstream myfile;
+      for (int i=0; i<n_amp_finders; i++) {
+          ostringstream filename;
+          filename << "logs/sizelog_" << i << ".csv";
+          myfile.open(filename.str());
+          myfile << sizelog(amplitude_finders[i]->worklist_sizes);
+          myfile.close();
+      }
+
+  }
+
+  void print_bw() {}
 };
 
 int sc_main(int argc, char *argv[]) {
   Top top("top");
   sc_start();
+  top.save_size_logs();
+  
   // if (BWLOG)
   //   top.print_bw();
   return 0;

@@ -1,18 +1,33 @@
 
 
 
-size | pathintegral | matrix method
-4 | 0.11user | 0.04user
-5 | 0.14user | 0.10user
-6 | 0.12user | 0.42user
-7 | 0.17user | 4.30user
-8 | 0.23user | 48.96user
-9 | 0.37user | 575.70user
-10 | 0.73user | nope
-11 | 1.57user | 
-12 | 3.41user
+size | pathintegral | matrix method | SEQSim
+4 | 0.11user | 0.04user | 83ms
+5 | 0.14user | 0.10user | 111.27ms
+6 | 0.12user | 0.42user | 182.992
+7 | 0.17user | 4.30user | 613
+8 | 0.23user | 48.96user | 1869ms
+9 | 0.37user | 575.70user | 6457ms
+10 | 0.73user | nope | 27256
+11 | 1.57user | 92122
+12 | 3.41user | 329547
 13 | 7.46user
 14 | 17.25user
 15 | 38.92user
 16 | 85.42user
-17 | 
+17 | 212.70user
+
+size | pathint WSsize | MM WSsize
+4 | 28282880 | 22716416
+5 | 28057600 | 29704192
+6 | 28114944 | 33640448
+7 | 32333824 | 40468480
+8 | 28418048 | 40624128
+9 | 30044160 | 138866688
+10 | 31846400 | 517722112
+11 | 35373056
+12 | 39956480
+13 | 52805632
+14 | 82886656
+15 | 139149312
+16 | 266452992

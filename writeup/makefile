@@ -6,3 +6,6 @@ detail.pdf: qsim_pathintegral.md q.bib
 
 quick-bmark.pdf: benchmark_report.md q.bib
 	pandoc benchmark_report.md --filter pandoc-citeproc -o quick-bmark.pdf --pdf-engine=xelatex
+
+optimising_layout.pdf: optimising_layout.md q.bib
+	pandoc optimising_layout.md --filter pandoc-citeproc -o optimising_layout.pdf --pdf-engine=xelatex

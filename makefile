@@ -17,6 +17,7 @@ RESTRICT_FLAG=-max-no-int-divs=1 -max-no-fp-divs=1 -max-no-int-muls=1 -max-no-fp
 
 SYSC=/media/psf/Home/Projects/ACS/P35/systemc-2.3.2
 CPPFLAGS=-std=c++14 -DSC_CPLUSPLUS=201402L -DSC_DISABLE_API_VERSION_CHECK=0 -Wno-unused-variable -Wall -g
+INCLUDES=-I/usr/share/verilator/include/ -I$(SYSC)/include/
 ### SOFTWARE
 
 build:
@@ -39,7 +40,10 @@ run-direct: build/direct_calculation.exe
 
 clean:
 	rm -rf build tests/a.out
+	rm -rf src/CLaSH/verilog
 	find src/CLaSH/ -name "*hi" -type f -delete
+	
+	find src/CLaSH/ -name "*.o" -type f -delete
 	find src/CLaSH/ -name "*dyn_o" -type f -delete
 	find tests -name "*hi" -type f -delete
 	find tests -name "*dyn_o" -type f -delete
@@ -63,14 +67,40 @@ build/demo.dll: src/FS/demo.fs build packages
 build/model: src/cpp/model.cpp src/cpp/algo.cpp src/cpp/algo.h src/cpp/loggingsocket.hpp build
 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ src/cpp/model.cpp src/cpp/algo.cpp -o build/model
 
+build/model2: src/cpp/model2.cpp src/cpp/algo.cpp src/cpp/algo.h src/cpp/loggingsocket.hpp build
+	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ src/cpp/model2.cpp src/cpp/algo.cpp -o build/model2
+
+
 build/cppexample: src/cpp/algo.cpp src/cpp/algo.h src/cpp/demo.cpp build
 	g++ $(CPPFLAGS) src/cpp/algo.cpp src/cpp/demo.cpp -Isrc/cpp/ -o build/cppexample
 
 
+
+## SYSC RTL MODEL
+
+build/Vcmult.cpp: build/verilog/Driver/cmult/cmult.v build
+	verilator -Wall --sc build/verilog/Driver/cmult/*.v --Mdir build/ --top-module cmult -Wno-fatal
+
+build/verilator_model.o: src/cpp/verilator_model.cpp build/Vcmult.cpp build # Vcmult is for the .h file
+	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) -Ibuild/ -c src/cpp/verilator_model.cpp -o build/verilator_model.o
+
+build/verilated.o: build/Vcmult.cpp build/verilator_model.o # recursive make considered harmful etc
+	+make -C build -j -f Vcmult.mk Vcmult__ALL.a
+	+make -C build -j -f Vcmult.mk verilator_model.o verilated.o
+
+build/RTLmodel: build/verilated.o build/verilator_model.o
+	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) build/verilator_model.o build/Vcmult__ALL*.o build/verilated.o -o build/RTLmodel
+
+
 # Hardware stuff
 
-build/verilog/Driver/cmult/cmult.v: src/CLaSH/driver.hs build
-	cd build && stack exec -- clash --verilog ../src/CLaSH/driver.hs	
+build/verilog/Driver/cmult/cmult.v: src/CLaSH/cmult.hs build
+	cd build && stack exec -- clash --verilog ../src/CLaSH/cmult.hs	
+
+build/verilog/Driver/findamp/findamp.v: src/CLaSH/FindAmp.hs build
+	cd build && stack exec -- clash --verilog ../src/CLaSH/FindAmp.hs	
+
+findamp-clash: build/verilog/Driver/findamp/findamp.v
 
 clash: build/verilog/Driver/cmult/cmult.v
 

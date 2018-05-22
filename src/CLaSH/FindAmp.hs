@@ -3,12 +3,16 @@ module FindAmp where
 import Clash.Prelude
 import Data.Maybe
 import HwTypes
+import Debug.Trace
+import qualified Data.List as L
 
+{-# INLINE complete_elem #-}
 complete_elem :: Enum i => WorkUnit -> i -> Amplitude -> WorkUnit
 complete_elem wu predidx amp =
   wu { wu_amplitudes = replace predidx amp (wu_amplitudes wu),
        wu_deps = replace predidx DS_COMPLETE (wu_deps wu) }
 
+{-# INLINE input_amp_update #-}
 input_amp_update :: WorkList -> Maybe AmpReply -> WorkList
 input_amp_update wlist update = 
   if isJust update then 
@@ -26,67 +30,180 @@ input_amp_update wlist update =
   else -- no update to make.
     wlist
 
-input_wu_update :: WorkList -> PtrT -> Maybe WorkUnit -> (WorkList, PtrT)
-input_wu_update wlist ptr wu =
+{-# INLINE input_wu_update #-}
+input_wu_update :: WorkList -> PtrT -> Bool -> Maybe WorkUnit -> (WorkList, PtrT, Bool)
+input_wu_update wlist ptr empty wu =
   if isJust wu then
-    (replace (ptr+1) (fromJust wu) wlist, ptr+1)
+    let
+      newptr = if empty then 0 else (ptr+1)
+    in
+      (replace newptr (fromJust wu) wlist, newptr, False)
   else
-    (wlist, ptr)
+    (wlist, ptr, empty)
 
+
+{-# INLINE evaluatewu #-}
 evaluatewu :: WorkList -> PtrT -> (WorkList, Maybe AmpReply)
 evaluatewu wlist ptr =
   let
     wu = wlist !! ptr
-  in let
-    gate = circuit !! (wu_depth wu)
-  in
-    (wlist, Nothing)
-    
-makerequests :: WorkList -> PtrT -> (WorkList, PtrT, Maybe WorkUnit)
-makerequests wlist ptr = (wlist, ptr, Nothing)
+    gatedepth = trace "eval depth" (traceShowId (wu_depth wu)) -- this depth
+    targetgatedepth = if (wu_depth wu) > 0 then (wu_depth wu)-1 else 0 -- when adding new wu's, what gate to spec
 
+    targetptr = (wu_ampreply_dest_idx (wlist !! ptr))
+    targetpred = (wu_ampreply_dest_pred_idx (wlist !! ptr))
+    target_wu = (wlist !! (wu_ampreply_dest_idx (wlist !! ptr)))
+  in let
+    resamp = if gatedepth == 0 then -- base case
+              trace "evaluate complete, base case" (if (wu_target wu) == (wu_inital wu) then Amplitude { real = 1.0, imag = 0.0 } else czero)
+            else -- not base case
+                let
+                  gate = cgate (circuit !! (gatedepth-1))
+                  qubits = cbits (circuit !! (gatedepth-1))
+                  join = zip3 (wu_deps wu) (wu_predecessors wu) (wu_amplitudes wu)
+                in let
+                  calc_resamp predecessor predamp = cmul (evaluategate gate (extractbits qubits predecessor) 
+                                                                            (extractbits qubits (wu_target wu))) 
+                                                         predamp
+                in let
+                  resamp_l = map (\(deptype, pstate, pamp) -> if deptype == DS_COMPLETE then calc_resamp pstate pamp else czero) join
+                in
+                  fold cadd (trace "evaluate complete, summing" (traceShowId resamp_l))
+
+  in 
+    if ((wu_returnloc wu) == RT_LOCAL) then
+      let
+        updatedwu = target_wu { wu_amplitudes = replace targetpred resamp (wu_amplitudes target_wu), 
+                                wu_deps = replace targetpred DS_COMPLETE (wu_deps target_wu) }
+      in
+      (replace (trace ("sub [" L.++ (show targetptr) L.++ "][" L.++ (show targetpred) L.++ "] with " L.++ (show resamp)) targetptr) updatedwu wlist, Nothing)
+    else -- RT_UPSTREAM
+      (wlist, Just AmpReply { ampreply_target=(wu_target wu), ampreply_amplitude=resamp, 
+                              ampreply_dest_idx= targetptr, ampreply_dest_pred_idx=targetpred })
+    
+
+-- This function transitions wu's from DS_INIT to either DS_REQUESTED or DS_DONT_CARE.
+{-# INLINE makerequests #-}
+makerequests :: CircuitPtr -> WorkList -> PtrT -> (WorkList, PtrT, Maybe WorkUnit)
+makerequests depthsplit wlist ptr = 
+  let
+    wu = wlist !! ptr
+  in let
+    -- there is at last one INIT state in this, as requestsmade != True
+    idxtoreq :: PredPtrT = fromJust (elemIndex DS_INIT (wu_deps wu))
+    -- (ifoldr (\idx val acc -> if val == DS_INIT then idx else acc) 0 (wu_deps wu))
+    destdepth =  (wu_depth wu) - 1
+    -- qubitcount =  -- lean on lazy eval here
+  in let
+    newtarget = (wu_predecessors wu) !! idxtoreq
+  in
+    if (wu_depth wu) == 0 then -- this is the base case, we don't have any deps. set to DONT_CARE so we can eval, destdepth would be -1
+      let
+        wlist' = replace ptr (wu { wu_deps = repeat DS_DONT_CARE }) wlist
+      in
+        (wlist', ptr, Nothing)
+
+    else if idxtoreq < gateQubitCount (cgate ( circuit !! destdepth )) then -- split point, > add to us, and we need it. only if we heed this evaluation
+      let
+        
+        ptr' = ptr+1
+        newwu = emptywu { wu_target=trace ("adding new wu targetting " L.++ (show newtarget)) newtarget,
+                          wu_inital=(wu_inital wu),
+                          wu_depth=destdepth, wu_returnloc=RT_LOCAL,
+                          wu_ampreply_dest_idx=ptr, wu_ampreply_dest_pred_idx=idxtoreq }
+      in let
+        (wlist', remote_req) = if destdepth >= depthsplit then 
+                                (replace (ptr+1) newwu wlist, Nothing)
+                              else
+                                (wlist, Just newwu) -- make a remote request!
+      in let
+        wlist'' = replace ptr (wu { wu_deps = replace idxtoreq DS_REQUESTED (wu_deps wu) }) wlist' -- mark as requested
+      in
+        (wlist'', ptr', remote_req)
+
+    else if idxtoreq >= gateQubitCount (cgate (circuit !! destdepth)) then -- we don't need this pred state, so set don't care
+      let
+        wlist' = replace ptr (wu { wu_deps = replace idxtoreq DS_DONT_CARE (wu_deps wu) }) wlist
+      in
+        (wlist', ptr, Nothing)
+
+    else -- we should make a remote request!
+      (wlist, ptr, Nothing) -- TODO FIXME XXX
+
+{-# INLINE canevaluate #-}
 canevaluate :: WorkUnit -> Bool
 canevaluate wu = foldl (\acc v -> if (v == DS_COMPLETE || v == DS_DONT_CARE) then acc else False) True (wu_deps wu)
 
+{-# INLINE requestsmade #-}
 requestsmade :: WorkUnit -> Bool
 requestsmade wu = foldl (\acc v -> if not (v == DS_INIT) then acc else False) True (wu_deps wu)
 
 -- this should try to evaluate the last element on the worklist.
 -- if successful, should push the pointer up by 1 and write the value to the right place
 -- else we try and make a "recursive" request, or wait.
-tryevaluate :: WorkList -> PtrT -> (WorkList, PtrT, Output)
-tryevaluate wlist ptr =
+-- we know it's not empty
+{-# INLINE tryevaluate #-}
+tryevaluate :: CircuitPtr -> WorkList -> PtrT -> (WorkList, PtrT, Bool, Output)
+tryevaluate depthsplitpt wlist ptr =
   if canevaluate (wlist !! ptr) then
     let
-      ptr' = ptr-1
+      (next_ptr, next_empty) = if ptr > 0 then (ptr-1, False) else (0, True)
       (wlist', reply) = evaluatewu wlist ptr -- replaces the relevent higher element
     in
       -- no requests need to be made
-      (wlist', ptr', Output { output_workunit = Nothing, output_amp = reply })
+      (wlist', next_ptr, next_empty, emptyout { output_amp = reply })
+  
+  else if not (wu_preds_eval (wlist !! ptr)) then -- if this depth != 0 then we need to add pred states. can't make it empty, as we are just working on current.
+    let
+      wu = (wlist !! ptr)
+    in let
+      wlist' = replace 
+                ptr 
+                (wu { wu_preds_eval = True, 
+                      wu_predecessors = if (wu_depth wu) == 0 then (wu_predecessors wu)
+                                        else 
+                                          let
+                                            gate = cgate (circuit !! ((wu_depth wu)-1) )
+                                            qubits = cbits (circuit !! ((wu_depth wu)-1) )
+                                          in
+                                            stateball (wu_target wu) (arity gate) qubits} ) 
+                wlist
+    in
+      (wlist', ptr, False, emptyout)
       
   else if not (requestsmade (wlist !! ptr)) then
     -- we can only make one request per cycle, so this will loop for a while.
     let
-      (wlist', ptr', output_wu) = makerequests wlist ptr
+      (wlist', ptr', output_wu) = makerequests depthsplitpt wlist ptr
     in
-      (wlist', ptr', Output { output_workunit = output_wu, output_amp =Nothing })
+      (wlist', ptr', False, emptyout { output_workunit = output_wu }) -- makerequests can't remove wu's
 
   else -- cannot need to wait for external modules to add data to the final wu so we can work on it
-    (wlist, ptr, Output { output_workunit = Nothing, output_amp = Nothing })
+    (wlist, ptr, False, emptyout) -- we know the wlist is not empty
 
 
 findamp_mealy :: ModuleState -> Input -> (ModuleState, Output)
-findamp_mealy state input = let
-    worklist' = input_amp_update (state_worklist state) (input_amp input)
+findamp_mealy state input = 
+  let
+    worklist' = if not (state_wlist_empty state) then
+       input_amp_update (state_worklist state) (input_amp input)
+    else
+      (state_worklist state) -- we can't update any states if it's empty
+
   in let
-    (worklist'', ptr'') = input_wu_update worklist' (state_workpos state) (input_wu input)
+    (worklist'' :: WorkList, ptr'', empty'') = input_wu_update worklist' (state_workpos state) (state_wlist_empty state) (input_wu input)
+
   in let
-    (worklist''', ptr''', output) = tryevaluate worklist'' ptr''
+    (worklist''', ptr''', empty''', output) = if not empty'' then -- skip if no work to do!
+      tryevaluate (input_depth_split input) worklist'' ptr'' -- this sould be able to set empty as well
+    else
+      (worklist'', ptr'', empty'', emptyout)
+
   in
-    (ModuleState { state_worklist = worklist''', state_workpos = ptr''' }, output)
+    (ModuleState { state_worklist = worklist''', state_workpos = ptr''', state_wlist_empty = empty''' }, output { output_ptr_dbg = if not empty''' then Just ptr''' else Nothing })
 
 
-initalstate = ModuleState { state_worklist = repeat emptywu, state_workpos = 0 }
+initalstate = ModuleState { state_worklist = repeat emptywu, state_workpos = 0, state_wlist_empty = True }
 
 {-# ANN topEntity
   (Synthesize

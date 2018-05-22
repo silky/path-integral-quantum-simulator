@@ -77,32 +77,63 @@ build/cppexample: src/cpp/algo.cpp src/cpp/algo.h src/cpp/demo.cpp build
 
 
 ## SYSC RTL MODEL
+# main module
+build/Vfindamp.cpp: build/verilog/FindAmp/findamp/findamp.v build
+	verilator -Wall --sc build/verilog/FindAmp/findamp/*.v --Mdir build/ -Ibuild/verilog/FindAmp/findamp --top-module findamp -Wno-fatal
 
-build/Vcmult.cpp: build/verilog/Driver/cmult/cmult.v build
-	verilator -Wall --sc build/verilog/Driver/cmult/*.v --Mdir build/ --top-module cmult -Wno-fatal
+build/Vpack_input.cpp: build/verilog/Interfaces/pack_input/pack_input.v build
+	verilator -Wall --sc build/verilog/Interfaces/pack_input/*.v --Mdir build/ -Ibuild/verilog/Interfaces/pack_input --top-module pack_input -Wno-fatal
 
-build/verilator_model.o: src/cpp/verilator_model.cpp build/Vcmult.cpp build # Vcmult is for the .h file
+build/Vunpack_output.cpp: build/verilog/Interfaces/unpack_output/unpack_output.v build
+	verilator -Wall --sc build/verilog/Interfaces/unpack_output/*.v --Mdir build/ -Ibuild/verilog/Interfaces/unpack_output --top-module unpack_output -Wno-fatal
+
+build/Vfindamp__ALL.a: build/Vfindamp.cpp
+	+make -C build -j -f Vfindamp.mk Vfindamp__ALL.a
+
+build/Vpack_input__ALL.a: build/Vpack_input.cpp
+	+make -C build -j -f Vpack_input.mk Vpack_input__ALL.a
+
+build/Vunpack_output__ALL.a: build/Vunpack_output.cpp
+	+make -C build -j -f Vunpack_output.mk Vunpack_output__ALL.a
+
+
+build/verilator_model.o: src/cpp/verilator_model.cpp build/Vfindamp.cpp build # Vcmult is for the .h file
 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) -Ibuild/ -c src/cpp/verilator_model.cpp -o build/verilator_model.o
 
-build/verilated.o: build/Vcmult.cpp build/verilator_model.o # recursive make considered harmful etc
-	+make -C build -j -f Vcmult.mk Vcmult__ALL.a
-	+make -C build -j -f Vcmult.mk verilator_model.o verilated.o
+	
+
+build/verilated.o: build/verilator_model.o
+	+make -C build -j -f Vfindamp.mk verilator_model.o verilated.o
+
+# input/output unpackers
+
 
 build/RTLmodel: build/verilated.o build/verilator_model.o
-	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) build/verilator_model.o build/Vcmult__ALL*.o build/verilated.o -o build/RTLmodel
+	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) build/verilator_model.o build/Vfindamp__ALL*.o build/verilated.o -o build/RTLmodel
 
 
 # Hardware stuff
-
+# had to switch to vhdl as there was some syntax errors in the verilog clash output
 build/verilog/Driver/cmult/cmult.v: src/CLaSH/cmult.hs build
-	cd build && stack exec -- clash --verilog ../src/CLaSH/cmult.hs	
+	cd build && stack exec -- clash --vhdl ../src/CLaSH/cmult.hs
 
-build/verilog/Driver/findamp/findamp.v: src/CLaSH/FindAmp.hs build
-	cd build && stack exec -- clash --verilog ../src/CLaSH/FindAmp.hs	
+build/vhdl/FindAmp/findamp/findamp.vhdl: src/CLaSH/FindAmp.hs src/CLaSH/HwTypes.hs build
+	cd build && stack exec -- clash --vhdl ../src/CLaSH/FindAmp.hs	-i../src/CLaSH/ 
 
-findamp-clash: build/verilog/Driver/findamp/findamp.v
+build/verilog/FindAmp/findamp/findamp.v: src/CLaSH/FindAmp.hs src/CLaSH/HwTypes.hs build
+	cd build && stack exec -- clash --verilog ../src/CLaSH/FindAmp.hs	-i../src/CLaSH/ 
 
-clash: build/verilog/Driver/cmult/cmult.v
+build/vhdl/Interfaces/pack_input/pack_input.vhdl: src/CLaSH/Interfaces.hs src/CLaSH/HwTypes.hs build
+	cd build && stack exec -- clash --vhdl ../src/CLaSH/Interfaces.hs	-i../src/CLaSH/
+
+build/verilog/Interfaces/pack_input/pack_input.v: src/CLaSH/Interfaces.hs src/CLaSH/HwTypes.hs build
+	cd build && stack exec -- clash --verilog ../src/CLaSH/Interfaces.hs	-i../src/CLaSH/
+
+
+clash-vhdl: build/vhdl/FindAmp/findamp/findamp.vhdl build/vhdl/Interfaces/pack_input/pack_input.vhdl
+clash-verilog: build/verilog/FindAmp/findamp/findamp.v build/verilog/Interfaces/pack_input/pack_input.v
+
+clash: clash-vhdl clash-verilog
 
 cmul-test: tests/cmul-test.v build/verilog/Driver/cmult/cmult.v
 	iverilog tests/cmul-test.v build/verilog/Driver/cmult/*.v -o tests/cmultest

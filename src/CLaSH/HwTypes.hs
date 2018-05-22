@@ -6,7 +6,7 @@ import Clash.Prelude
 import Data.Maybe
 import GHC.Generics (Generic)
 import Debug.Trace
-
+import GHC.TypeNats
 import Control.DeepSeq
 -- Quantum function/typedef dtuff
 
@@ -99,14 +99,7 @@ extractbits bitidxs state =
   
 data Gate = H | CNOT deriving Show
 data CircuitElem = CircuitElem { cgate :: Gate, cbits :: Vec 3 StateIdx } deriving Show
-type Circuit = Vec 2 CircuitElem
-type CircuitPtr = Index 3 -- Circuitlen + 1 
 
-apply_0 :: Vec 3 StateIdx = 0 :> 0:> 0 :> Nil
-apply_1 :: Vec 3 StateIdx = 0 :> 0:> 0 :> Nil
-
-h0 = CircuitElem { cgate=H :: Gate, cbits=apply_0 }
-circuit :: Circuit = repeat h0
 
 gateQubitCount :: Gate -> Index 8
 gateQubitCount H = 2
@@ -166,7 +159,7 @@ emptywu = WorkUnit { -- need defaults for non-Maybe (i.e. HW) types
   wu_ampreply_dest_pred_idx = 0
 }
 
-type WorkList = Vec 10 WorkUnit
+type WorkList = Vec 3 WorkUnit -- Circuitlen + 1 (or the depth of this module+1)
 type PtrT = Index 10 --Signed 7 -- ptr to a worklist element
 
 data AmpReply = AmpReply { ampreply_target :: State, ampreply_amplitude :: Amplitude,
@@ -179,3 +172,14 @@ data ModuleState = ModuleState { state_worklist :: WorkList, state_workpos :: Pt
 data Input = Input { input_wu :: Maybe WorkUnit, input_amp :: Maybe AmpReply, input_depth_split :: CircuitPtr } deriving (Show, Generic, NFData)
 data Output = Output { output_workunit :: Maybe WorkUnit, output_amp :: Maybe AmpReply, output_ptr_dbg :: Maybe PtrT } deriving (Show, Generic, NFData)
 emptyout = Output { output_workunit = Nothing, output_amp = Nothing, output_ptr_dbg = Nothing }
+
+-- circuit defs
+
+type Circuit = Vec 2 CircuitElem
+type CircuitPtr = Index 3 -- Circuitlen + 1 
+
+apply_0 :: Vec 3 StateIdx = 0 :> 0:> 0 :> Nil
+apply_1 :: Vec 3 StateIdx = 0 :> 0:> 0 :> Nil
+
+h0 = CircuitElem { cgate=H :: Gate, cbits=apply_0 }
+circuit :: Circuit = repeat h0

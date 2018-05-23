@@ -52,16 +52,16 @@ substitute2 bits locs state = -- map replace state but I have a headache
   in
     s''
 
-substitute3 :: BitVector 3 -> Vec 3 StateIdx -> State -> State
-substitute3 bits locs state = -- map replace state but I have a headache
-  let
-    s' = replaceBit (locs !! 0) (booltb (testBit bits 0))  state
-  in let
-    s'' = replaceBit (locs !! 1) (booltb (testBit bits 1))  s'
-  in let
-    s''' = replaceBit (locs !! 2) (booltb (testBit bits 2))  s''
-  in
-    s'''
+-- substitute3 :: BitVector 3 -> Vec 3 StateIdx -> State -> State
+-- substitute3 bits locs state = -- map replace state but I have a headache
+--   let
+--     s' = replaceBit (locs !! 0) (booltb (testBit bits 0))  state
+--   in let
+--     s'' = replaceBit (locs !! 1) (booltb (testBit bits 1))  s'
+--   in let
+--     s''' = replaceBit (locs !! 2) (booltb (testBit bits 2))  s''
+--   in
+--     s'''
 
 stateball1 :: State -> Vec 1 StateIdx -> Vec 2 State
 stateball1 state qubits = 
@@ -71,37 +71,39 @@ stateball2 :: State -> Vec 2 StateIdx -> Vec 4 State
 stateball2 state qubits = 
   imap (\i state -> substitute2 (pack i) qubits state) (repeat state)
 
-stateball3 :: State -> Vec 3 StateIdx -> Vec 8 State
-stateball3 state qubits = 
-  imap (\i state -> substitute3 (pack i) qubits state) (repeat state)
+-- stateball3 :: State -> Vec 3 StateIdx -> Vec 8 State
+-- stateball3 state qubits = 
+--   imap (\i state -> substitute3 (pack i) qubits state) (repeat state)
 
-stateball :: State -> Unsigned 2 -> Vec 3 StateIdx -> Vec 8 State
+stateball :: State -> Unsigned 2 -> Vec 2 StateIdx -> Vec 4 State
 stateball state n qubits =
   if n == 1 then 
     (stateball1 state (take (SNat :: SNat 1) qubits)) ++ (repeat 0)
-  else if n == 2 then
-    (stateball2 state (take (SNat :: SNat 2) qubits)) ++ (repeat 0)
   else
-    stateball3 state (take (SNat :: SNat 3) qubits)
+    (stateball2 state (take (SNat :: SNat 2) qubits))
+  -- else
+  --   stateball3 state (take (SNat :: SNat 3) qubits)
 
 arity :: Gate -> Unsigned 2
 arity H = 1
 arity CNOT = 2
 
 -- take the bitidxs from state and shift into an otherwise empty state, tested
-extractbits :: KnownNat n => Vec n (Index 16) -> State -> State
+extractbits :: Vec 2 (Index 16) -> State -> State
 extractbits bitidxs state =
-  let
-    extractbit idx extractidx acc = 
-      replace idx ((bv2v state) !! (15-extractidx)) acc -- indexing is reversed hype
-  in
-    v2bv (ifoldr extractbit (repeat 0) bitidxs)
+  v2bv ( (gather (bv2v state) bitidxs) ++ repeat 0)
+  
+  -- let
+  --   extractbit idx extractidx acc = 
+  --     replace idx ((bv2v state) !! (15-extractidx)) acc -- indexing is reversed hype
+  -- in
+  --   v2bv (ifoldr extractbit (repeat 0) bitidxs)
   
 data Gate = H | CNOT deriving Show
-data CircuitElem = CircuitElem { cgate :: Gate, cbits :: Vec 3 StateIdx } deriving Show
+data CircuitElem = CircuitElem { cgate :: Gate, cbits :: Vec 2 StateIdx } deriving Show
 
 
-gateQubitCount :: Gate -> Index 8
+gateQubitCount :: Gate -> Index 4
 gateQubitCount H = 2
 gateQubitCount CNOT = 4
 
@@ -129,17 +131,17 @@ evaluategate CNOT _ _ = Amplitude { real = 0, imag = 0 } -- all other in-out pai
 data DepStatus = DS_INIT | DS_REQUESTED | DS_COMPLETE | DS_DONT_CARE deriving (Eq, Show, Generic, NFData)
 data RetType = RT_LOCAL | RT_UPSTREAM deriving (Eq, Show, Generic, NFData)
 
-type PredPtrT = Index 8
+type PredPtrT = Index 4
 
 data WorkUnit = WorkUnit {
   wu_target :: State,
   wu_inital :: State,
   wu_depth :: CircuitPtr,
 
-  wu_deps :: Vec 8 DepStatus,
+  wu_deps :: Vec 4 DepStatus,
   wu_preds_eval :: Bool,
-  wu_predecessors :: Vec 8 State,
-  wu_amplitudes :: Vec 8 Amplitude,
+  wu_predecessors :: Vec 4 State,
+  wu_amplitudes :: Vec 4 Amplitude,
 
   wu_returnloc :: RetType,
   wu_ampreply_dest_idx :: PtrT, 
@@ -178,8 +180,8 @@ emptyout = Output { output_workunit = Nothing, output_amp = Nothing, output_ptr_
 type Circuit = Vec 2 CircuitElem
 type CircuitPtr = Index 3 -- Circuitlen + 1 
 
-apply_0 :: Vec 3 StateIdx = 0 :> 0:> 0 :> Nil
-apply_1 :: Vec 3 StateIdx = 0 :> 0:> 0 :> Nil
+apply_0 :: Vec 2 StateIdx = 0 :> 0:> Nil
+apply_1 :: Vec 2 StateIdx = 1 :> 0:> Nil
 
 h0 = CircuitElem { cgate=H :: Gate, cbits=apply_0 }
 circuit :: Circuit = repeat h0

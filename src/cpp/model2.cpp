@@ -12,60 +12,16 @@ using namespace sc_dt;
 using namespace std;
 
 #include "algo.h"
+#include "tlm_types.hpp"
 #include "loggingsocket.hpp"
 #include "tlm.h"
 #include "tlm_utils/simple_initiator_socket.h"
 #include "tlm_utils/simple_target_socket.h"
 
+#include "rtl_findamp_transactor.hpp" // rtl version!
+
 #include <complex>
 #define MAX_MODULES 100
-
-enum depstate { INIT, REQUESTED, COMPLETE, DONT_CARE };
-enum returntype { LOCAL, REMOTE }; //
-
-typedef struct workunit {
-  state_t target;
-  state_t inital;
-  int depth;
-
-  depstate deps[MAX_PRED_STATES];
-  state_t predecessors[MAX_PRED_STATES];
-  amp_t amplitudes[MAX_PRED_STATES];
-
-  returntype returnloc; // REMOTE means ret to upstream.
-  int wu_dest;
-  int wu_dst_pred_idx; // position in the predecessors list
-} workunit_t;
-
-typedef struct workreturn {
-  state_t target;
-  amp_t amplitude;
-
-  int wu_dest;
-  int wu_dst_pred_idx; // position in the predecessors list
-} workreturn_t;
-
-bool can_eval(workunit_t wu) {
-  bool can = true;
-  for (int i = 0; i < MAX_PRED_STATES; i++) {
-    if (wu.deps[i] != COMPLETE && wu.deps[i] != DONT_CARE) {
-      can = false;
-      break;
-    }
-  }
-  return can;
-}
-
-bool non_default(workunit_t wu) {
-  bool non_default = false;
-  for (int i = 0; i < MAX_PRED_STATES; i++) {
-    if (wu.deps[i] > INIT) {
-      non_default = true;
-      break;
-    }
-  }
-  return non_default;
-}
 
 // Integrates over the priors that can lead to this state.
 amp_t evaluate(workunit_t wu, gate_t gate) {
@@ -279,7 +235,7 @@ struct FindAmp : sc_module {
   sc_time delay = sc_time(10, SC_NS);
   vector<workunit_t> worklist;
 
-  // to avoid need for locks, we enqueue and dequeue in the tlm handlers.
+  // to avoid need for locks, we enqueue a nd dequeue in the tlm handlers.
   std::queue<workunit_t> workrequest_queue;
   std::queue<workreturn_t> workreplies_queue;
 

@@ -69,8 +69,11 @@ build/demo.dll: src/FS/demo.fs build packages
 build/model: src/cpp/model.cpp src/cpp/algo.cpp src/cpp/algo.h src/cpp/loggingsocket.hpp build
 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ src/cpp/model.cpp src/cpp/algo.cpp -o build/model
 
-build/model2: src/cpp/model2.cpp src/cpp/algo.cpp src/cpp/algo.h src/cpp/loggingsocket.hpp build
-	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ src/cpp/model2.cpp src/cpp/algo.cpp -o build/model2
+# build/RTLmodel: build/verilated.o archives
+# 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) build/verilator_model.o build/V*__ALL*.o build/verilated.o -o build/RTLmodel
+
+build/model2: src/cpp/model2.cpp src/cpp/algo.cpp src/cpp/algo.h src/cpp/loggingsocket.hpp build/verilated.o build/verilator_transactor.o archives build
+	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ $(INCLUDES) -Ibuild/ src/cpp/model2.cpp src/cpp/algo.cpp build/verilated.o build/V*__ALL*.o -o build/model2
 
 
 build/cppexample: src/cpp/algo.cpp src/cpp/algo.h src/cpp/demo.cpp build
@@ -109,7 +112,7 @@ build/Vunpack_ampreply__ALL.a: build/Vunpack_ampreply.cpp
 	+make -C build -j -f Vunpack_ampreply.mk Vunpack_ampreply__ALL.a
 
 build/verilator_model.o: src/cpp/verilator_model.cpp modulesources build # Vcmult is for the .h file
-	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) -Ibuild/ -c src/cpp/verilator_model.cpp src/cpp/rtl_findamp_transactor.cpp -o build/verilator_model.o
+	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) -Ibuild/ -c src/cpp/verilator_model.cpp -o build/verilator_model.o
 
 build/verilator_transactor.o: src/cpp/rtl_findamp_transactor.cpp modulesources build
 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) -Ibuild/ -c src/cpp/rtl_findamp_transactor.cpp -o build/verilator_transactor.o

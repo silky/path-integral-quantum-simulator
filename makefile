@@ -1,3 +1,5 @@
+.PHONY: archives clashinterfaces
+
 export HPRLS=/media/psf/Home/Projects/ACS/kiwi_planner/bitbucket-hprls2
 # KCC=$HPRLS/kiwipro/kiwic/distro/bin/kiwic
 
@@ -78,6 +80,10 @@ build/cppexample: src/cpp/algo.cpp src/cpp/algo.h src/cpp/demo.cpp build
 
 ## SYSC RTL MODEL
 # main module
+build/verilog/axi_qsim.v: src/verilog/axi_qsim.yaml
+	python AXI-iface-gen/gen.py -c src/verilog/axi_qsim.yaml -o build/verilog/axi_qsim.v
+
+
 build/Vfindamp.cpp: build/verilog/FindAmp/findamp/findamp.v build
 	verilator -Wall --sc build/verilog/FindAmp/findamp/*.v --Mdir build/ -Ibuild/verilog/FindAmp/findamp --top-module findamp -Wno-fatal
 
@@ -86,6 +92,9 @@ build/Vpack_input.cpp: build/verilog/Interfaces/pack_input/pack_input.v build
 
 build/Vunpack_output.cpp: build/verilog/Interfaces/unpack_output/unpack_output.v build
 	verilator -Wall --sc build/verilog/Interfaces/unpack_output/*.v --Mdir build/ -Ibuild/verilog/Interfaces/unpack_output --top-module unpack_output -Wno-fatal
+
+build/Vunpack_ampreply.cpp: build/verilog/Interfaces/unpack_ampreply/unpack_ampreply.v build
+	verilator -Wall --sc build/verilog/Interfaces/unpack_ampreply/*.v --Mdir build/ -Ibuild/verilog/Interfaces/unpack_ampreply --top-module unpack_ampreply -Wno-fatal
 
 build/Vfindamp__ALL.a: build/Vfindamp.cpp
 	+make -C build -j -f Vfindamp.mk Vfindamp__ALL.a
@@ -96,20 +105,26 @@ build/Vpack_input__ALL.a: build/Vpack_input.cpp
 build/Vunpack_output__ALL.a: build/Vunpack_output.cpp
 	+make -C build -j -f Vunpack_output.mk Vunpack_output__ALL.a
 
+build/Vunpack_ampreply__ALL.a: build/Vunpack_ampreply.cpp
+	+make -C build -j -f Vunpack_ampreply.mk Vunpack_ampreply__ALL.a
 
-build/verilator_model.o: src/cpp/verilator_model.cpp build/Vfindamp.cpp build # Vcmult is for the .h file
-	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) -Ibuild/ -c src/cpp/verilator_model.cpp -o build/verilator_model.o
+build/verilator_model.o: src/cpp/verilator_model.cpp modulesources build # Vcmult is for the .h file
+	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) -Ibuild/ -c src/cpp/verilator_model.cpp src/cpp/rtl_findamp_transactor.cpp -o build/verilator_model.o
 
-	
+build/verilator_transactor.o: src/cpp/rtl_findamp_transactor.cpp modulesources build
+	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) -Ibuild/ -c src/cpp/rtl_findamp_transactor.cpp -o build/verilator_transactor.o
 
-build/verilated.o: build/verilator_model.o
-	+make -C build -j -f Vfindamp.mk verilator_model.o verilated.o
+modulesources: build/Vfindamp.cpp build/Vpack_input.cpp build/Vunpack_output.cpp build/Vunpack_ampreply.cpp
+archives: build/Vfindamp__ALL.a build/Vpack_input__ALL.a build/Vunpack_output__ALL.a build/Vunpack_ampreply__ALL.a
+
+build/verilated.o: build/verilator_model.o build/verilator_transactor.o
+	+make -C build -j -f Vfindamp.mk verilator_model.o verilated.o build/verilator_transactor.o
 
 # input/output unpackers
 
 
-build/RTLmodel: build/verilated.o build/verilator_model.o
-	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) build/verilator_model.o build/Vfindamp__ALL*.o build/verilated.o -o build/RTLmodel
+build/RTLmodel: build/verilated.o archives
+	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) build/verilator_model.o build/V*__ALL*.o build/verilated.o -o build/RTLmodel
 
 
 # Hardware stuff
@@ -126,9 +141,12 @@ build/verilog/FindAmp/findamp/findamp.v: src/CLaSH/FindAmp.hs src/CLaSH/HwTypes.
 build/vhdl/Interfaces/pack_input/pack_input.vhdl: src/CLaSH/Interfaces.hs src/CLaSH/HwTypes.hs build
 	cd build && stack exec -- clash --vhdl ../src/CLaSH/Interfaces.hs	-i../src/CLaSH/
 
-build/verilog/Interfaces/pack_input/pack_input.v: src/CLaSH/Interfaces.hs src/CLaSH/HwTypes.hs build
+clashinterfaces: src/CLaSH/Interfaces.hs src/CLaSH/HwTypes.hs build
 	cd build && stack exec -- clash --verilog ../src/CLaSH/Interfaces.hs	-i../src/CLaSH/
 
+build/verilog/Interfaces/pack_input/pack_input.v: clashinterfaces
+build/verilog/Interfaces/unpack_output/unpack_output.v: clashinterfaces
+build/verilog/Interfaces/unpack_ampreply/unpack_ampreply.v: clashinterfaces
 
 clash-vhdl: build/vhdl/FindAmp/findamp/findamp.vhdl build/vhdl/Interfaces/pack_input/pack_input.vhdl
 clash-verilog: build/verilog/FindAmp/findamp/findamp.v build/verilog/Interfaces/pack_input/pack_input.v

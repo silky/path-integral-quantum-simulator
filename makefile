@@ -1,4 +1,4 @@
-.PHONY: archives clashinterfaces
+.PHONY: archives cpclash
 
 export HPRLS=/media/psf/Home/Projects/ACS/kiwi_planner/bitbucket-hprls2
 # KCC=$HPRLS/kiwipro/kiwic/distro/bin/kiwic
@@ -22,15 +22,22 @@ CPPFLAGS=-std=c++14 -DSC_CPLUSPLUS=201402L -DSC_DISABLE_API_VERSION_CHECK=0 -Wno
 INCLUDES=-I/usr/share/verilator/include/ -I$(SYSC)/include/
 ### SOFTWARE
 
-build:
-	mkdir build
+
+INTERFACES = build/verilog/pack_input.v \
+						 build/verilog/unpack_output.v \
+             build/verilog/unpack_ampreply.v
+
+SPLITTERS = build/verilog/join_input.v \
+						build/verilog/join_output.v \
+						build/verilog/split_input.v \
+						build/verilog/split_output.v
 
 packages:
 	mono nuget.exe install MathNet.Numerics -Pre -OutputDirectory packages
 	mono nuget.exe install MathNet.Numerics.FSharp -Pre -OutputDirectory packages
 
 # /r:$(KDLL) /r:$(KRDLL)
-build/QLib.dll: src/CS/QLib.cs build packages
+build/QLib.dll: src/CS/QLib.cs  packages
 	mcs -sdk:4.6 -unsafe -t:library src/CS/QLib.cs -r /usr/lib/mono/4.6.1-api/System.Numerics.dll -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -o build/QLib.dll
 
 run: build/path_simulation.exe
@@ -41,7 +48,7 @@ run-direct: build/direct_calculation.exe
 
 
 clean:
-	rm -rf build tests/a.out
+	rm -rf build/* tests/a.out
 	rm -rf src/CLaSH/verilog
 	find src/CLaSH/ -name "*hi" -type f -delete
 	
@@ -55,66 +62,53 @@ deepclean: clean # drop the mono packages - needs internet to rebuild.
 	rm -rf packages
 
 
-build/path_simulation.exe: src/FS/path_simulation.fs build/QLib.dll build/demo.dll build packages
+build/path_simulation.exe: src/FS/path_simulation.fs build/QLib.dll build/demo.dll  packages
 	fsharpc -o build/path_simulation.exe --target:exe src/FS/path_simulation.fs -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r build/QLib.dll -r build/demo.dll
 	
-build/direct_calculation.exe: src/FS/direct_calculation.fs build/QLib.dll build/demo.dll build packages
+build/direct_calculation.exe: src/FS/direct_calculation.fs build/QLib.dll build/demo.dll  packages
 	fsharpc -o build/direct_calculation.exe --target:exe src/FS/direct_calculation.fs -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r build/QLib.dll -r build/demo.dll
 
-build/demo.dll: src/FS/demo.fs build packages
+build/demo.dll: src/FS/demo.fs  packages
 	fsharpc --target:library src/FS/demo.fs -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -o build/demo.dll
 
 ## TLM model
 
-build/model: src/cpp/model.cpp src/cpp/algo.cpp src/cpp/algo.h src/cpp/loggingsocket.hpp build
+build/model: src/cpp/model.cpp src/cpp/algo.cpp src/cpp/algo.h src/cpp/loggingsocket.hpp 
 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ src/cpp/model.cpp src/cpp/algo.cpp -o build/model
 
 # build/RTLmodel: build/verilated.o archives
 # 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) build/verilator_model.o build/V*__ALL*.o build/verilated.o -o build/RTLmodel
 
-build/model2: src/cpp/model2.cpp src/cpp/algo.cpp src/cpp/algo.h src/cpp/loggingsocket.hpp build/verilated.o build/verilator_transactor.o archives build
-	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ $(INCLUDES) -Ibuild/ src/cpp/model2.cpp src/cpp/algo.cpp build/verilated.o build/V*__ALL*.o -o build/model2
+build/model2: src/cpp/model2.cpp src/cpp/algo.cpp src/cpp/algo.h src/cpp/loggingsocket.hpp src/cpp/tlm_types.cpp
+	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ $(INCLUDES) -Ibuild/ src/cpp/model2.cpp src/cpp/algo.cpp src/cpp/tlm_types.cpp -o build/model2 
 
 
-build/cppexample: src/cpp/algo.cpp src/cpp/algo.h src/cpp/demo.cpp build
+build/cppexample: src/cpp/algo.cpp src/cpp/algo.h src/cpp/demo.cpp 
 	g++ $(CPPFLAGS) src/cpp/algo.cpp src/cpp/demo.cpp -Isrc/cpp/ -o build/cppexample
 
-
+build/tlm_types.o: src/cpp/tlm_types.cpp
+		g++ $(CPPFLAGS) -c src/cpp/tlm_types.cpp -Isrc/cpp/ -o build/tlm_types.o
 
 ## SYSC RTL MODEL
 # main module
+
+## AXI interface module
 build/verilog/axi_qsim.v: src/verilog/axi_qsim.yaml
 	python AXI-iface-gen/gen.py -c src/verilog/axi_qsim.yaml -o build/verilog/axi_qsim.v
 
+build/V%.cpp: build/verilog/%.v 
+	verilator -Wall --sc build/verilog/*.v --Mdir build/ -Ibuild/verilog/ --top-module $(basename $(notdir $^)) -Wno-fatal
 
-build/Vfindamp.cpp: build/verilog/FindAmp/findamp/findamp.v build
-	verilator -Wall --sc build/verilog/FindAmp/findamp/*.v --Mdir build/ -Ibuild/verilog/FindAmp/findamp --top-module findamp -Wno-fatal
+## Now the parts are in a consistant directory, we can use makefile rules to be a bit more consise
 
-build/Vpack_input.cpp: build/verilog/Interfaces/pack_input/pack_input.v build
-	verilator -Wall --sc build/verilog/Interfaces/pack_input/*.v --Mdir build/ -Ibuild/verilog/Interfaces/pack_input --top-module pack_input -Wno-fatal
+build/V%__ALL.a: build/V%.cpp
+	+make -C build -j -f $(addsuffix .mk, $(basename $(notdir $^))) $(notdir $@)
 
-build/Vunpack_output.cpp: build/verilog/Interfaces/unpack_output/unpack_output.v build
-	verilator -Wall --sc build/verilog/Interfaces/unpack_output/*.v --Mdir build/ -Ibuild/verilog/Interfaces/unpack_output --top-module unpack_output -Wno-fatal
 
-build/Vunpack_ampreply.cpp: build/verilog/Interfaces/unpack_ampreply/unpack_ampreply.v build
-	verilator -Wall --sc build/verilog/Interfaces/unpack_ampreply/*.v --Mdir build/ -Ibuild/verilog/Interfaces/unpack_ampreply --top-module unpack_ampreply -Wno-fatal
-
-build/Vfindamp__ALL.a: build/Vfindamp.cpp
-	+make -C build -j -f Vfindamp.mk Vfindamp__ALL.a
-
-build/Vpack_input__ALL.a: build/Vpack_input.cpp
-	+make -C build -j -f Vpack_input.mk Vpack_input__ALL.a
-
-build/Vunpack_output__ALL.a: build/Vunpack_output.cpp
-	+make -C build -j -f Vunpack_output.mk Vunpack_output__ALL.a
-
-build/Vunpack_ampreply__ALL.a: build/Vunpack_ampreply.cpp
-	+make -C build -j -f Vunpack_ampreply.mk Vunpack_ampreply__ALL.a
-
-build/verilator_model.o: src/cpp/verilator_model.cpp modulesources build # Vcmult is for the .h file
+build/verilator_model.o: src/cpp/verilator_model.cpp modulesources  # Vcmult is for the .h file
 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) -Ibuild/ -c src/cpp/verilator_model.cpp -o build/verilator_model.o
 
-build/verilator_transactor.o: src/cpp/rtl_findamp_transactor.cpp modulesources build
+build/verilator_transactor.o: src/cpp/rtl_findamp_transactor.cpp modulesources 
 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) -Ibuild/ -c src/cpp/rtl_findamp_transactor.cpp -o build/verilator_transactor.o
 
 modulesources: build/Vfindamp.cpp build/Vpack_input.cpp build/Vunpack_output.cpp build/Vunpack_ampreply.cpp
@@ -132,39 +126,33 @@ build/RTLmodel: build/verilated.o archives
 
 # Hardware stuff
 # had to switch to vhdl as there was some syntax errors in the verilog clash output
-build/verilog/Driver/cmult/cmult.v: src/CLaSH/cmult.hs build
-	cd build && stack exec -- clash --vhdl ../src/CLaSH/cmult.hs
+# nope fixed it: real is a verilog reserved word and the clash builtin permutation vector funcs are good
 
-build/vhdl/FindAmp/findamp/findamp.vhdl: src/CLaSH/FindAmp.hs src/CLaSH/HwTypes.hs build
-	cd build && stack exec -- clash --vhdl ../src/CLaSH/FindAmp.hs	-i../src/CLaSH/ 
+MATCHSTR = ".*\(.v\|.manifest\|.inc\)\'"
 
-build/verilog/FindAmp/findamp/findamp.v: src/CLaSH/FindAmp.hs src/CLaSH/HwTypes.hs build
+build/verilog/findamp.v: src/CLaSH/FindAmp.hs src/CLaSH/HwTypes.hs 
 	cd build && stack exec -- clash --verilog ../src/CLaSH/FindAmp.hs	-i../src/CLaSH/ 
+	mv `find build/verilog/FindAmp -regex $(MATCHSTR)` build/verilog/
 
-build/vhdl/Interfaces/pack_input/pack_input.vhdl: src/CLaSH/Interfaces.hs src/CLaSH/HwTypes.hs build
-	cd build && stack exec -- clash --vhdl ../src/CLaSH/Interfaces.hs	-i../src/CLaSH/
 
-clashinterfaces: src/CLaSH/Interfaces.hs src/CLaSH/HwTypes.hs build
+build/clashinterfaces: src/CLaSH/Interfaces.hs src/CLaSH/HwTypes.hs 
 	cd build && stack exec -- clash --verilog ../src/CLaSH/Interfaces.hs	-i../src/CLaSH/
+	mv `find build/verilog/Interfaces -regex $(MATCHSTR)` build/verilog/
+	touch build/clashinterfaces # the generated files and the src do not share a common stem, so we use this as a hack
 
-build/verilog/Interfaces/pack_input/pack_input.v: clashinterfaces
-build/verilog/Interfaces/unpack_output/unpack_output.v: clashinterfaces
-build/verilog/Interfaces/unpack_ampreply/unpack_ampreply.v: clashinterfaces
+build/clashsplitters: src/CLaSH/Split.hs src/CLaSH/HwTypes.hs 
+	cd build && stack exec -- clash --verilog ../src/CLaSH/Split.hs	-i../src/CLaSH/
+	mv `find build/verilog/Split -regex $(MATCHSTR)` build/verilog/
+	touch build/clashsplitters
 
-clash-vhdl: build/vhdl/FindAmp/findamp/findamp.vhdl build/vhdl/Interfaces/pack_input/pack_input.vhdl
-clash-verilog: build/verilog/FindAmp/findamp/findamp.v build/verilog/Interfaces/pack_input/pack_input.v
 
-clash: clash-vhdl clash-verilog
-
-cmul-test: tests/cmul-test.v build/verilog/Driver/cmult/cmult.v
-	iverilog tests/cmul-test.v build/verilog/Driver/cmult/*.v -o tests/cmultest
+$(INTERFACES): build/clashinterfaces
+interfaces: $(INTERFACES)
 	
-test-hwblocks: clash cmul-test
-	tests/cmultest
+$(SPLITTERS): build/clashsplitters
+splitters: $(SPLITTERS)
 
-tests/fixedpttests: "tests/data.txt"
-	stack exec -- clash --make tests/createRomFile.hs
-	./createRomFile "tests/data.txt" "tests/fixedpttests"
+clash: build/verilog/findamp.v build/clashsplitters build/clashinterfaces 
 
 
 ## Test stuff.

@@ -18,10 +18,11 @@ using namespace std;
 #include "tlm_utils/simple_initiator_socket.h"
 #include "tlm_utils/simple_target_socket.h"
 
-#include "rtl_findamp_transactor.hpp" // rtl version!
-
 #include <complex>
 #define MAX_MODULES 100
+#define FINDAMP_T FindAmp
+
+// #define FINDAMP_T FindAmpRTL
 
 // Integrates over the priors that can lead to this state.
 amp_t evaluate(workunit_t wu, gate_t gate) {
@@ -251,7 +252,8 @@ struct FindAmp : sc_module {
   tlm_utils::simple_target_socket<FindAmp, sizeof(workreturn_t)> workreply;
   tlm::tlm_generic_payload workrequestor_trans;
   int mindepth;
-
+  sc_core::sc_port<sc_signal_in_if<bool>, 1, SC_ZERO_OR_MORE_BOUND> clk;
+  
   vector<pair<sc_time, int>> worklist_sizes; // for util tracking.
 
   typedef FindAmp SC_CURRENT_USER_MODULE;
@@ -499,10 +501,13 @@ struct HeightDiv : sc_module {
 // HeightDiv) pair. be super basic:
 
 SC_MODULE(Top) {
-  FindAmp *amplitude_finders[MAX_MODULES];
+  FINDAMP_T *amplitude_finders[MAX_MODULES];
   HeightDiv *divs[MAX_MODULES];
   BaseCase *basecases[MAX_MODULES];
-
+  
+  // sc_in<bool> clk;
+  // sc_signal<bool> clksig;
+  
   Initiator *init;
   PrintWorkLists *printer;
 
@@ -572,12 +577,15 @@ SC_MODULE(Top) {
 
   typedef Top SC_CURRENT_USER_MODULE;
   Top(::sc_core::sc_module_name, istream & config) {
+    // sensitive_pos << clk;
+    // SC_THREAD(passclk);
+    
     parse_spec(config);
     // Instantiate components
     for (int i = 0; i < n_amp_finders; i++) {
       ostringstream name;
       name << "FindAmp:" << i;
-      amplitude_finders[i] = new FindAmp(name.str().c_str(), ampdepths[i]);
+      amplitude_finders[i] = new FINDAMP_T(name.str().c_str(), ampdepths[i]);
     }
     for (int i = 0; i < n_divs; i++) {
       ostringstream name;
@@ -680,6 +688,10 @@ SC_MODULE(Top) {
     }
   }
 
+  // void passclk() {
+  //     clksig = clk;
+  // }
+
   std::string sizelog(vector<pair<sc_time, int>> & log) {
     ostringstream times;
     ostringstream sizes;
@@ -706,12 +718,19 @@ SC_MODULE(Top) {
 };
 
 int sc_main(int argc, char *argv[]) {
+  // sc_clock clk("clk", 10, 0.5, 3, true);
+  // sc_signal<bool> rst("rst");
+
   string cfgfilename = string(argv[1]);
   if (cfgfilename == "-") {
     Top top("top", cin);
+    // top.clk(clk);
+    // top.rst(rst);
   } else {
     ifstream config(cfgfilename, ios::in);
     Top top("top", config);
+    // top.clk(clk);
+    // top.rst(rst);
   }
   sc_start();
   // top.save_size_logs();

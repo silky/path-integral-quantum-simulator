@@ -9,6 +9,11 @@
 #include "tlm_utils/simple_initiator_socket.h"
 #include "tlm_utils/simple_target_socket.h"
 
+#include "Vfindamp.h"
+#include "Vpack_input.h"
+#include "Vunpack_ampreply.h"
+#include "Vunpack_output.h"
+
 using namespace std;
 using namespace sc_core;
 
@@ -17,7 +22,9 @@ using namespace sc_core;
 struct FindAmpRTL : sc_core::sc_module {
     typedef FindAmpRTL SC_CURRENT_USER_MODULE;
     
-    vector<workunit_t> worklist;
+    vector<workunit_t> worklist; // total stub.
+    vector<pair<sc_time, int>> worklist_sizes; // for util tracking, we can update this!
+
 
     // for up-circuit connection
     tlm_utils::simple_target_socket<FindAmpRTL, sizeof(workunit_t)>
@@ -32,10 +39,8 @@ struct FindAmpRTL : sc_core::sc_module {
     tlm::tlm_generic_payload workrequestor_trans;
 
     sc_in<bool> clk; // can't avoid it!
-    sc_in<bool> rst; // can't avoid it!
-
     FindAmpRTL(::sc_core::sc_module_name, int mindepth_);
-    ~FindAmpRTL(void);
+    ~FindAmpRTL(void) = default;
 
 private:
     
@@ -77,9 +82,9 @@ private:
     Vunpack_ampreply* ampparser;
 
 
-    virtual tlm::tlm_sync_enum recv_wu(tlm::tlm_generic_payload &trans, tlm::tlm_phase &phase, sc_time &delay);
+    tlm::tlm_sync_enum recv_wu(tlm::tlm_generic_payload &trans, tlm::tlm_phase &phase, sc_time &delay);
 
-    virtual tlm::tlm_sync_enum recv_reply(tlm::tlm_generic_payload &trans, tlm::tlm_phase &phase, sc_time &delay);
+    tlm::tlm_sync_enum recv_reply(tlm::tlm_generic_payload &trans, tlm::tlm_phase &phase, sc_time &delay);
 
     void QueueManage();
 

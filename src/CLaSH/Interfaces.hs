@@ -94,6 +94,42 @@ unpack_output_entity
   -> Signal System (WorkUnit, Bit, AmpReply, Bit, Signed 32)
 unpack_output_entity = exposeClockReset (mealy unpack_output ())
 
+-- data Amplitude = Amplitude { real :: SFixed 2 10,
+--                              imag :: SFixed 2 10 } deriving (Show, Generic, NFData)
+-- data AmpReply = AmpReply { ampreply_target :: State, ampreply_amplitude :: Amplitude,
+--                            ampreply_dest_idx :: PtrT, ampreply_dest_pred_idx :: PredPtrT } deriving (Show, Generic, NFData)
+
+
+unpack_ampreply :: () -> AmpReply -> ((), (Signed 12, Signed 12, State, PtrT, PredPtrT))
+unpack_ampreply _ rply = ((), (realpt, imagpt, target, dstidx, destpredidx))
+  where
+    realpt = unSF (real (ampreply_amplitude rply))
+    imagpt = unSF (imag (ampreply_amplitude rply))
+    target = ampreply_target rply
+    dstidx = ampreply_dest_idx rply
+    destpredidx = ampreply_dest_pred_idx rply
+
+{-# ANN unpack_ampreply_entity
+  (Synthesize
+    { t_name     = "unpack_ampreply"
+    , t_inputs   = [
+        PortName "clk",
+        PortName "rst",
+        PortName "ampreply"
+      ]
+    , t_output  = PortProduct "" [ PortName "realpt", -- real is a verilog keyword
+                                   PortName "imagpt", 
+                                   PortName "targetstate", 
+                                   PortName "destidx",
+                                   PortName "destpredidx" ]
+    }) #-}
+
+unpack_ampreply_entity   
+  :: Clock System Source
+  -> Reset System Asynchronous 
+  -> Signal System AmpReply
+  -> Signal System (Signed 12, Signed 12, State, PtrT, PredPtrT)
+unpack_ampreply_entity = exposeClockReset (mealy unpack_ampreply ())
 
 ------- TESTBENCH GENERATION MODULES
 

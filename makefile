@@ -1,5 +1,3 @@
-.PHONY: archives cpclash
-
 export HPRLS=/media/psf/Home/Projects/ACS/kiwi_planner/bitbucket-hprls2
 # KCC=$HPRLS/kiwipro/kiwic/distro/bin/kiwic
 
@@ -21,16 +19,23 @@ SYSC=/media/psf/Home/Projects/ACS/P35/systemc-2.3.2
 CPPFLAGS=-std=c++14 -DSC_CPLUSPLUS=201402L -DSC_DISABLE_API_VERSION_CHECK=0 -Wno-unused-variable -Wall -g
 INCLUDES=-I/usr/share/verilator/include/ -I$(SYSC)/include/
 ### SOFTWARE
+.PHONY: archives cpclash
 
 
 INTERFACES = build/verilog/pack_input.v \
 						 build/verilog/unpack_output.v \
-             build/verilog/unpack_ampreply.v
+             build/verilog/unpack_ampreply.v \
+						 build/verilog/pack_workunit.v \
+						 build/verilog/parse_ptr.v
 
 SPLITTERS = build/verilog/join_input.v \
 						build/verilog/join_output.v \
 						build/verilog/split_input.v \
 						build/verilog/split_output.v
+
+CLASH_MOD_NAMES = findamp pack_input unpack_output unpack_ampreply pack_workunit parse_ptr
+CLASH_MOD_NAMES += split_input join_input split_output join_output
+
 
 packages:
 	mono nuget.exe install MathNet.Numerics -Pre -OutputDirectory packages
@@ -111,8 +116,10 @@ build/verilator_model.o: src/cpp/verilator_model.cpp modulesources  # Vcmult is 
 build/verilator_transactor.o: src/cpp/rtl_findamp_transactor.cpp modulesources 
 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) -Ibuild/ -c src/cpp/rtl_findamp_transactor.cpp -o build/verilator_transactor.o
 
-modulesources: build/Vfindamp.cpp build/Vpack_input.cpp build/Vunpack_output.cpp build/Vunpack_ampreply.cpp
-archives: build/Vfindamp__ALL.a build/Vpack_input__ALL.a build/Vunpack_output__ALL.a build/Vunpack_ampreply__ALL.a
+
+modulesources: $(foreach modname, $(CLASH_MOD_NAMES), $(subst XX,$(modname), build/VXX.cpp) )
+	# build/Vfindamp.cpp build/Vpack_input.cpp build/Vunpack_output.cpp build/Vunpack_ampreply.cpp
+archives: $(foreach modname, $(CLASH_MOD_NAMES), $(subst XX,$(modname), build/VXX__ALL.a) )
 
 build/verilated.o: build/verilator_model.o build/verilator_transactor.o
 	+make -C build -j -f Vfindamp.mk verilator_model.o verilated.o build/verilator_transactor.o
@@ -121,7 +128,7 @@ build/verilated.o: build/verilator_model.o build/verilator_transactor.o
 
 
 build/RTLmodel: build/verilated.o archives
-	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) build/verilator_model.o build/V*__ALL*.o build/verilated.o -o build/RTLmodel
+	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) build/verilator_model.o build/V*__ALL*.a build/verilated.o -o build/RTLmodel
 
 
 # Hardware stuff

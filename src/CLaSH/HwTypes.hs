@@ -161,8 +161,8 @@ emptywu = WorkUnit { -- need defaults for non-Maybe (i.e. HW) types
   wu_ampreply_dest_pred_idx = 0
 }
 
-type WorkList = Vec 3 WorkUnit -- Circuitlen + 1 (or the depth of this module+1)
-type PtrT = Index 10 --Signed 7 -- ptr to a worklist element
+type WorkList = Vec 16 WorkUnit -- Circuitlen + 1 (or the depth of this module+1)
+type PtrT = Index 16 --Signed 7 -- ptr to a worklist element
 
 data AmpReply = AmpReply { ampreply_target :: State, ampreply_amplitude :: Amplitude,
                            ampreply_dest_idx :: PtrT, ampreply_dest_pred_idx :: PredPtrT } deriving (Show, Generic, NFData)

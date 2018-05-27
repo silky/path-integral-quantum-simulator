@@ -100,14 +100,23 @@ unpack_output_entity = exposeClockReset (mealy unpack_output ())
 --                            ampreply_dest_idx :: PtrT, ampreply_dest_pred_idx :: PredPtrT } deriving (Show, Generic, NFData)
 
 
-unpack_ampreply :: () -> AmpReply -> ((), (Signed 12, Signed 12, State, PtrT, PredPtrT))
-unpack_ampreply _ rply = ((), (realpt, imagpt, target, dstidx, destpredidx))
+unpack_ampreply :: () -> Maybe AmpReply -> ((), (Bit, Signed 12, Signed 12, State, PtrT, PredPtrT))
+unpack_ampreply _ rply = ((), out)
   where
-    realpt = unSF (real (ampreply_amplitude rply))
-    imagpt = unSF (imag (ampreply_amplitude rply))
-    target = ampreply_target rply
-    dstidx = ampreply_dest_idx rply
-    destpredidx = ampreply_dest_pred_idx rply
+    out = if isJust rply then
+      let
+        rply' = fromJust rply
+      in let
+        asvalid = 1
+        realpt = unSF (real (ampreply_amplitude rply'))
+        imagpt = unSF (imag (ampreply_amplitude rply'))
+        target = ampreply_target rply'
+        dstidx = ampreply_dest_idx rply'
+        destpredidx = ampreply_dest_pred_idx rply'
+      in
+        (asvalid, realpt, imagpt, target, dstidx, destpredidx)
+    else
+      (0, 0, 0, 0, 0, 0)
 
 {-# ANN unpack_ampreply_entity
   (Synthesize
@@ -117,7 +126,8 @@ unpack_ampreply _ rply = ((), (realpt, imagpt, target, dstidx, destpredidx))
         PortName "rst",
         PortName "ampreply"
       ]
-    , t_output  = PortProduct "" [ PortName "realpt", -- real is a verilog keyword
+    , t_output  = PortProduct "" [ PortName "valid",
+                                   PortName "realpt", -- real is a verilog keyword
                                    PortName "imagpt", 
                                    PortName "targetstate", 
                                    PortName "destidx",
@@ -127,9 +137,60 @@ unpack_ampreply _ rply = ((), (realpt, imagpt, target, dstidx, destpredidx))
 unpack_ampreply_entity   
   :: Clock System Source
   -> Reset System Asynchronous 
-  -> Signal System AmpReply
-  -> Signal System (Signed 12, Signed 12, State, PtrT, PredPtrT)
+  -> Signal System (Maybe AmpReply)
+  -> Signal System (Bit, Signed 12, Signed 12, State, PtrT, PredPtrT)
 unpack_ampreply_entity = exposeClockReset (mealy unpack_ampreply ())
+
+
+pack_workunit :: () -> (CircuitPtr, (State, State, CircuitPtr), Bit) -> ((), Maybe WorkUnit)
+pack_workunit _ (splitdepth, (target, inital, depth), wu_enb) =
+  let
+    wu = if b2b wu_enb then Just emptywu { wu_target=target, wu_inital=inital, wu_depth=depth, wu_returnloc=RT_UPSTREAM }
+         else Nothing
+  in
+    ((), wu)
+
+{-# ANN pack_workunit_entity
+  (Synthesize
+    { t_name     = "pack_workunit"
+    , t_inputs   = [
+        PortName "clk",
+        PortName "rst",
+        PortProduct "" [PortName "inp_splitdepth", PortProduct "" [PortName "target", PortName "inital", PortName "depth"], PortName "inp_wu_valid"]
+      ]
+    , t_output  = PortName "workunit"
+    }) #-}
+
+pack_workunit_entity   
+  :: Clock System Source
+  -> Reset System Asynchronous 
+  -> Signal System (CircuitPtr, (State, State, CircuitPtr), Bit)
+  -> Signal System (Maybe WorkUnit)
+pack_workunit_entity = exposeClockReset (mealy pack_workunit ())
+
+parse_ptr :: () -> Maybe PtrT -> ((), Signed 32)
+parse_ptr _ ptr = ((), if (isJust ptr) 
+                           then unpack (resize (pack (fromJust ptr))) 
+                           else -1
+                      )
+
+{-# ANN parse_ptr_entity
+  (Synthesize
+    { t_name     = "parse_ptr"
+    , t_inputs   = [
+        PortName "clk",
+        PortName "rst",
+        PortName "ptrbundle"
+      ]
+    , t_output  = PortName "ptrparsed"
+    }) #-}
+
+parse_ptr_entity   
+  :: Clock System Source
+  -> Reset System Asynchronous 
+  -> Signal System (Maybe PtrT)
+  -> Signal System (Signed 32)
+parse_ptr_entity = exposeClockReset (mealy parse_ptr ())
 
 ------- TESTBENCH GENERATION MODULES
 

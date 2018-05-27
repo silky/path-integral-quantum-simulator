@@ -76,6 +76,7 @@ evaluatewu wlist ptr =
         updatedwu = target_wu { wu_amplitudes = replace targetpred resamp (wu_amplitudes target_wu), 
                                 wu_deps = replace targetpred DS_COMPLETE (wu_deps target_wu) }
       in
+      -- (replace (trace ("sub [" L.++ (show targetptr) L.++ "][" L.++ (show targetpred) L.++ "] with " L.++ (show resamp)) targetptr) updatedwu wlist, Nothing)
       (replace (trace ("sub [" L.++ (show targetptr) L.++ "][" L.++ (show targetpred) L.++ "] with " L.++ (show resamp)) targetptr) updatedwu wlist, Nothing)
     else -- RT_UPSTREAM
       (wlist, Just AmpReply { ampreply_target=(wu_target wu), ampreply_amplitude=resamp, 
@@ -105,17 +106,15 @@ makerequests depthsplit wlist ptr =
 
     else if idxtoreq < gateQubitCount (cgate ( circuit !! destdepth )) then -- split point, > add to us, and we need it. only if we heed this evaluation
       let
-        
-        ptr' = ptr+1
         newwu = emptywu { wu_target=trace ("adding new wu targetting " L.++ (show newtarget)) newtarget,
                           wu_inital=(wu_inital wu),
-                          wu_depth=destdepth, wu_returnloc=RT_LOCAL,
+                          wu_depth=destdepth, -- wu_returnloc=RT_LOCAL,
                           wu_ampreply_dest_idx=ptr, wu_ampreply_dest_pred_idx=idxtoreq }
       in let
-        (wlist', remote_req) = if destdepth >= depthsplit then 
-                                (replace (ptr+1) newwu wlist, Nothing)
+        (wlist', remote_req, ptr') = if destdepth >= depthsplit then 
+                                (replace (ptr+1) (newwu { wu_returnloc=RT_LOCAL }) wlist, Nothing, ptr+1)
                               else
-                                (wlist, Just newwu) -- make a remote request!
+                                (wlist, Just (newwu { wu_returnloc=RT_UPSTREAM }), ptr) -- make a remote request!
       in let
         wlist'' = replace ptr (wu { wu_deps = replace idxtoreq DS_REQUESTED (wu_deps wu) }) wlist' -- mark as requested
       in
@@ -127,8 +126,19 @@ makerequests depthsplit wlist ptr =
       in
         (wlist', ptr, Nothing)
 
-    else -- we should make a remote request!
-      (wlist, ptr, Nothing) -- TODO FIXME XXX
+    else --SHOULD NOT BE HERE?
+      -- let
+      --   request = Just emptywu {
+      --     wu_target = newtarget,
+      --     wu_inital = (wu_inital wu),
+      --     wu_depth = destdepth,
+      --     wu_returnloc = RT_UPSTREAM,
+      --     wu_ampreply_dest_idx = ptr,
+      --     wu_ampreply_dest_pred_idx = idxtoreq
+      --   }
+      -- in
+      --   (wlist, ptr, request) -- TODO FIXME XXX
+      (wlist, ptr, Nothing)
 
 {-# INLINE canevaluate #-}
 canevaluate :: WorkUnit -> Bool

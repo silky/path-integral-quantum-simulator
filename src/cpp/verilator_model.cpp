@@ -1,4 +1,6 @@
 #include "Vfindamp.h"
+#include "Vheightdiv.h"
+
 #include "Vpack_input.h"
 #include "Vpack_workunit.h"
 #include "Vunpack_ampreply.h"
@@ -198,164 +200,178 @@ SC_MODULE(Network) {
   sc_in<bool> rst;
 
   sc_in<sc_bv<WUSZ>> stim_wu;
-  // sc_out<sc_bv<OUTBSZ>> network_result;
   sc_out<sc_bv<OUTBSZ>> network_result;
 
   private:
-  sc_signal<sc_bv<INBSZ>> input_bundle_w;
-  sc_signal<sc_bv<OUTBSZ>> output_bundle_from_top;
-  sc_signal<sc_bv<OUTBSZ>> output_bundle_to_out;
+  // top output
+  sc_signal<sc_bv<263> >	top_output_bundle;
+
+  // join into top
+  sc_signal<sc_bv<211> > top_wu_input;
+  sc_signal<uint32_t> top_depthlim; // Fixed value
+  sc_signal<sc_bv<260>>	input_bundle_to_top;
   
+  // split from top - output_bundle_from_top is input here
+  sc_signal<uint32_t>	top_pos_track;
+  sc_signal<vluint64_t>	top_amp_output;
+  sc_signal<sc_bv<211> >	top_to_heightdiv_wu;
 
-  // Vjoin_input signals
-  sc_signal<uint32_t>	depthlim;
-  sc_signal<vluint64_t>	amp;
-  sc_signal<sc_bv<211> >	wu;
+  // Heightdiv
+  sc_signal<vluint64_t>	bottom_to_top_amp_rply;
+  sc_signal<sc_bv<211> >	bottom_high_req;
+  sc_signal<sc_bv<211> >	bottom_low_req;
+
+  // join into bottom_low, bottom_high
+  sc_signal<uint32_t> bottom_depthlim; // fixed value
+  sc_signal<vluint64_t>	bottoms_amp_input; // fixed Nothing
+  sc_signal<sc_bv<260>>	input_bundle_to_bottom_low;
+  sc_signal<sc_bv<260>>	input_bundle_to_bottom_high;
+
+  // bottom outputs
+  sc_signal<sc_bv<263> >	output_bundle_bottom_low;
+  sc_signal<sc_bv<263> >	output_bundle_bottom_high;
+
+  // split from bottoms
+  sc_signal<uint32_t>	pos_bottom_low;
+  sc_signal<uint32_t>	pos_bottom_high;
+  sc_signal<vluint64_t>	amp_bottom_high_to_div;
+  sc_signal<sc_bv<211> >	wu_bottom_high_tieoff;
+  sc_signal<vluint64_t>	amp_bottom_low_to_div;
+  sc_signal<sc_bv<211> >	wu_bottom_low_tieoff;
   
-  // Top output split connections
-  sc_signal<uint32_t>	top_pos_output_NC; // NC
-  sc_signal<vluint64_t>	top_amp_output_NC; // NC
-  sc_signal<sc_bv<211> >	top_to_bottom_wu;
-
-
-  // Vjoin_into_bottom signals
-  sc_signal<uint32_t>	bottom_depthlim;
-  sc_signal<vluint64_t>	bottom_amplitude_input;
-  sc_signal<sc_bv<INBSZ>> bottom_input_bundle;
-
-  // Bottom output split connections
-  sc_signal<uint32_t>	bottom_pos_output_NC; // NC
-  sc_signal<vluint64_t>	bottom_to_top_amp; 
-  sc_signal<sc_bv<263> >	bottom_to_outsplit_bundle;
-  sc_signal<sc_bv<211> >	bottom_wu_out_NC; // NC
-
-
-  sc_signal<uint32_t> ptr, ptr2;
-
   public:
   void run() {
-    if (top_to_bottom_wu.read() != 0) {
-         cout << "request:" << top_to_bottom_wu.read() << endl;
+    if (top_wu_input.read() != 0) {
+       cout << "top request" << endl;
+    }
+    if (bottom_high_req.read() != 0) {
+       cout << "bottom_high_req" << endl;
+    }
+    if (bottom_low_req.read() != 0) {
+       cout << "bottom_low_req" << endl;
+    }
+    
+    if (bottom_to_top_amp_rply.read() != 0) {
+       cout << "top got reply from lower" << endl;
+    }
+    
+    if (amp_bottom_high_to_div.read() != 0) {
+       cout << "bottom_high amp to divmod" << endl;
     }
 
-    // if (top_to_bottom_wu.read() == 0) {
-    //     cout << "top to bottom wu zero" << endl;
-    // } else {
-    //     cout << "top to bottom wu: " << top_to_bottom_wu << endl;
-    // }
-    
+    if (amp_bottom_low_to_div.read() != 0) {
+       cout << "bottom_low amp to divmod" << endl;
+    }
+
+
     if (clk.event()) {
-      network_result = output_bundle_from_top;
-      wu = stim_wu;
-      amp = 0;
-      // network_result.write(output_bundle_w.read());
-      cout << "ptrlocs: " << (int32_t)ptr << " " << (int32_t)ptr2 << endl;
+      network_result = top_output_bundle;
+      top_wu_input = stim_wu;
+      
+      cout << "ptrlocs: " << (int32_t)top_pos_track << " " << (int32_t)pos_bottom_low << "," << (int32_t)pos_bottom_high << endl;
     } 
   }
 
-  SC_CTOR(Network)
-      : SCD(clk, rst, stim_wu, network_result, input_bundle_w, output_bundle_from_top, output_bundle_to_out),
-      SCD(depthlim, amp, wu),
-      SCD(top_pos_output_NC, top_amp_output_NC, top_to_bottom_wu),
-      SCD(bottom_depthlim, bottom_amplitude_input, bottom_input_bundle),
-      SCD(bottom_pos_output_NC, bottom_to_top_amp, bottom_to_outsplit_bundle, bottom_wu_out_NC),
-      SCD(ptr, ptr2) {
+  SC_CTOR(Network) : SCD(top_output_bundle, top_wu_input, top_depthlim, input_bundle_to_top, top_pos_track, top_to_heightdiv_wu, bottom_to_top_amp_rply, bottom_high_req, bottom_low_req, bottom_depthlim, bottoms_amp_input, input_bundle_to_bottom_low, input_bundle_to_bottom_high, output_bundle_bottom_low, output_bundle_bottom_high, pos_bottom_low, pos_bottom_high, amp_bottom_high_to_div, wu_bottom_high_tieoff, amp_bottom_low_to_div, wu_bottom_low_tieoff) {
     SC_METHOD(run);
     sensitive_pos(clk);
 
-    // network everything!
-
-    Vfindamp *top = new Vfindamp("top_findamp");
+    // top findamp
+    
+    Vfindamp *top = new Vfindamp("top");
     top->clk(clk);
     top->rst(rst);
-
-    // you need to delare signals as classs members - as locals, they are
-    // dstroyed at ctor term and they need to continue to exist
-
-    top->input_bundle(input_bundle_w);
-    top->output_bundle(output_bundle_from_top);  // CRASHES.
-
-    Vjoin_input *joiner = new Vjoin_input("joiner");
-    joiner->clk(clk);
-    joiner->rst(rst);
     
-    depthlim.write(1);
-    joiner->depthlim(depthlim);
-    joiner->amp(bottom_to_top_amp);
-    joiner->wu(wu);
-    joiner->input_bundle(input_bundle_w);
+    top->input_bundle(input_bundle_to_top);
+    top->output_bundle(top_output_bundle);
     
-    // we need to extract the requested workunit for bottom to process.
+    Vjoin_input *top_joiner = new Vjoin_input("top_joiner");
+    top_joiner->clk(clk);
+    top_joiner->rst(rst);
+    
+    top_joiner->depthlim(top_depthlim); top_depthlim.write(1);
+    top_joiner->amp(bottom_to_top_amp_rply);
+    top_joiner->wu(top_wu_input);
+    top_joiner->input_bundle(input_bundle_to_top);
+    
     Vsplit_output *top_output_split = new Vsplit_output("top_output_split");
     top_output_split->clk(clk);
     top_output_split->rst(rst);
     
-    // SCD(top_pos_output_NC, top_amp_output_NC, top_to_outsplit_bundle, top_to_bottom_wu),
+    top_output_split->output_bundle(top_output_bundle);
+    top_output_split->pos(top_pos_track);
+    top_output_split->amp(top_amp_output);
+    top_output_split->wu(top_to_heightdiv_wu);
+    
+    // heightdiv
+    
+    Vheightdiv *heightdiv = new Vheightdiv("heightdiv");
+    heightdiv->clk(clk);
+    heightdiv->rst(rst);
+    
+    heightdiv->upstream_req(top_to_heightdiv_wu);
+    heightdiv->upstream_rply(bottom_to_top_amp_rply);
+    heightdiv->downstream_high_req(bottom_high_req);
+    heightdiv->downstream_high_rply(amp_bottom_high_to_div);
+    heightdiv->downstream_low_req(bottom_low_req);
+    heightdiv->downstream_low_rply(amp_bottom_low_to_div);
+    
+    // bottom_low
+    
+    Vfindamp *bottom_low = new Vfindamp("bottom_low");
+    bottom_low->clk(clk);
+    bottom_low->rst(rst);
+    
+    bottom_low->input_bundle(input_bundle_to_bottom_low);
+    bottom_low->output_bundle(output_bundle_bottom_low);
+    
+    Vjoin_input *bottom_low_joiner = new Vjoin_input("bottom_low_joiner");
+    bottom_low_joiner->clk(clk);
+    bottom_low_joiner->rst(rst);
 
-    top_output_split->pos(top_pos_output_NC);
-    top_output_split->amp(top_amp_output_NC);
-    top_output_split->output_bundle(output_bundle_from_top);
-    top_output_split->wu(top_to_bottom_wu);
+    bottom_low_joiner->depthlim(bottom_depthlim); bottom_depthlim.write(0);
+    bottom_low_joiner->amp(bottoms_amp_input); bottoms_amp_input.write(0);
+    bottom_low_joiner->wu(bottom_low_req);
+    bottom_low_joiner->input_bundle(input_bundle_to_bottom_low);
     
-    Vparse_ptr *parsetopptr = new Vparse_ptr("parsetopptr");
-    parsetopptr->clk(clk);
-    parsetopptr->rst(rst);
-    parsetopptr->ptrbundle(top_pos_output_NC);
-    parsetopptr->ptrparsed(ptr);
+    Vsplit_output *bottom_low_output_split = new Vsplit_output("bottom_low_output_split");
+    bottom_low_output_split->clk(clk);
+    bottom_low_output_split->rst(rst);
+    
+    bottom_low_output_split->output_bundle(output_bundle_bottom_low);
+    bottom_low_output_split->pos(pos_bottom_low);
+    bottom_low_output_split->amp(amp_bottom_low_to_div);
+    bottom_low_output_split->wu(wu_bottom_low_tieoff); // should be tieoff
+    
+    // bottom_high
+    
+    Vfindamp *bottom_high = new Vfindamp("bottom_high");
+    bottom_high->clk(clk);
+    bottom_high->rst(rst);
+    
+    bottom_high->input_bundle(input_bundle_to_bottom_high);
+    bottom_high->output_bundle(output_bundle_bottom_high);
+    
+    Vjoin_input *bottom_high_joiner = new Vjoin_input("bottom_high_joiner");
+    bottom_high_joiner->clk(clk);
+    bottom_high_joiner->rst(rst);
 
+    bottom_high_joiner->depthlim(bottom_depthlim);
+    bottom_high_joiner->amp(bottoms_amp_input);
+    bottom_high_joiner->wu(bottom_high_req);
+    bottom_high_joiner->input_bundle(input_bundle_to_bottom_high);
     
-    // AMPFINDER MK 2!
-    // need a output_spliter to get the requested wu from top
-    // need join_input to get the wu+empty amp into the 
-    // need another 
+    Vsplit_output *bottom_high_output_split = new Vsplit_output("bottom_high_output_split");
+    bottom_high_output_split->clk(clk);
+    bottom_high_output_split->rst(rst);
     
-    Vfindamp *bottom = new Vfindamp("bottom_findamp");
-    bottom->clk(clk);
-    bottom->rst(rst);
-    bottom->input_bundle(bottom_input_bundle);
+    bottom_high_output_split->output_bundle(output_bundle_bottom_high);
+    bottom_high_output_split->pos(pos_bottom_high);
+    bottom_high_output_split->amp(amp_bottom_high_to_div);
+    bottom_high_output_split->wu(wu_bottom_high_tieoff); // should be tieoff
 
-    Vjoin_input *join_into_bottom = new Vjoin_input("join_into_bottom");
-    join_into_bottom->clk(clk);
-    join_into_bottom->rst(rst);
-
-
-    // SCD(bottom_depthlim, bottom_amplitude_input, bottom_workunit_input, bottom_input_bundle),
-    bottom_depthlim.write(0);
-    join_into_bottom->depthlim(bottom_depthlim);
-    join_into_bottom->amp(bottom_amplitude_input);
-    join_into_bottom->wu(top_to_bottom_wu);
-    join_into_bottom->input_bundle(bottom_input_bundle);
-
-    
-    // we need to extract the requested workunit for bottom to process.
-    Vsplit_output *bottom_output_split = new Vsplit_output("bottom_output_split");
-    bottom_output_split->clk(clk);
-    bottom_output_split->rst(rst);
-    
-    // SCD(bottom_pos_output_NC, bottom_to_top_amp, bottom_to_outsplit_bundle, bottom_wu_out_NC),
-    
-    bottom->output_bundle(bottom_to_outsplit_bundle);
-    bottom_output_split->pos(bottom_pos_output_NC);
-    bottom_output_split->amp(bottom_to_top_amp);
-    bottom_output_split->output_bundle(bottom_to_outsplit_bundle);
-    bottom_output_split->wu(bottom_wu_out_NC);
-    
-    Vparse_ptr *parsebottomptr = new Vparse_ptr("parsebottomptr");
-    parsebottomptr->clk(clk);
-    parsebottomptr->rst(rst);
-    parsebottomptr->ptrbundle(bottom_pos_output_NC);
-    parsebottomptr->ptrparsed(ptr2);
-    
-    // PROBES
-    print_ampreply* commprint = new print_ampreply("commprint");
-    commprint->clk(clk);
-    commprint->rst(rst);
-    commprint->ampreply(bottom_to_top_amp);
-    
-
-    // Vsplit_output *so = new Vsplit_output("so");
-    // Vjoin_output *jo = new Vjoin_output("jo");
   }
+
 };
 
 int sc_main(int argc, char **argv) {

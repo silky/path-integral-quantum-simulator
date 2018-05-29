@@ -129,9 +129,9 @@ build/verilator_transactor.o: src/cpp/rtl_findamp_transactor.cpp modulesources
 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) -Ibuild/ -c src/cpp/rtl_findamp_transactor.cpp -o build/verilator_transactor.o
 
 
-modulesources: $(foreach modname, $(CLASH_MOD_NAMES), $(subst XX,$(modname), build/VXX.cpp) )
+modulesources: $(foreach modname, $(CLASH_MOD_NAMES), $(subst XX,$(modname), build/VXX.cpp) ) build/VnetworkRTL.cpp
 	# build/Vfindamp.cpp build/Vpack_input.cpp build/Vunpack_output.cpp build/Vunpack_ampreply.cpp
-archives: $(foreach modname, $(CLASH_MOD_NAMES), $(subst XX,$(modname), build/VXX__ALL.a) )
+archives: $(foreach modname, $(CLASH_MOD_NAMES), $(subst XX,$(modname), build/VXX__ALL.a) ) build/VnetworkRTL__ALL.a
 
 build/verilated.o: build/verilator_model.o build/verilator_transactor.o
 	+make -C build -j -f Vfindamp.mk verilator_model.o verilated.o build/verilator_transactor.o

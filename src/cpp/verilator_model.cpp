@@ -7,7 +7,7 @@
 #include "Vunpack_output.h"
 #include "Vparse_ptr.h"
 
-// #include "VnetworkRTL.h"
+#include "VnetworkRTL.h"
 
 #include "Vjoin_input.h"
 #include "Vjoin_output.h"
@@ -299,7 +299,7 @@ SC_MODULE(Network) {
     top_joiner->clk(clk);
     top_joiner->rst(rst);
     
-    top_joiner->depthlim(top_depthlim); top_depthlim.write(0);
+    top_joiner->depthlim(top_depthlim); top_depthlim.write(2);
     top_joiner->amp(bottom_to_top_amp_rply);
     top_joiner->wu(top_wu_input);
     top_joiner->input_bundle(input_bundle_to_top);
@@ -413,8 +413,8 @@ int sc_main(int argc, char **argv) {
   testoutput* finish_cond;
   finish_cond = new testoutput("finishcond");
 
-  Network *net = new Network("Network");
-  // VnetworkRTL *net = new VnetworkRTL("topNetwork");
+  // Network *net = new Network("Network");
+  VnetworkRTL *net = new VnetworkRTL("topNetwork");
 
   stim->clk(clk);
   stim->rst(rst);

@@ -201,4 +201,4 @@ apply_1 :: Vec 2 StateIdx = 1 :> 0:> Nil
 h0 = CircuitElem { cgate=H :: Gate, cbits=apply_0 }
 i0 = CircuitElem { cgate=I :: Gate, cbits=apply_0 }
 
-circuit :: Circuit = repeat i0
+circuit :: Circuit = repeat h0

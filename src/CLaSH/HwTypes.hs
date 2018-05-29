@@ -12,11 +12,13 @@ import Control.DeepSeq
 
 type State = BitVector 16
 type StateIdx = Index 16
-data Amplitude = Amplitude { real :: SFixed 2 10,
-                             imag :: SFixed 2 10 } deriving (Show, Generic, NFData)
+type NumT = SFixed 3 10
+data Amplitude = Amplitude { real :: NumT,
+                             imag :: NumT } deriving (Show, Generic, NFData)
 
-czero = Amplitude { real=0, imag=0 }
-sqrt22 = $$(fLit ((sqrt 2.0) / 2.0)) :: SFixed 2 10
+sqrt22 = $$(fLit ((sqrt 2.0) / 2.0)) :: NumT
+zero = $$(fLit 0.0) :: NumT
+czero = Amplitude { real=zero, imag=zero }
 
 cmul :: Amplitude -> Amplitude -> Amplitude
 {-# INLINE cmul #-}
@@ -87,42 +89,55 @@ stateball state n qubits =
 arity :: Gate -> Unsigned 2
 arity H = 1
 arity CNOT = 2
+arity I = 1
 
 -- take the bitidxs from state and shift into an otherwise empty state, tested
 extractbits :: Vec 2 (Index 16) -> State -> State
 extractbits bitidxs state =
-  v2bv ( (gather (bv2v state) bitidxs) ++ repeat 0)
+  -- v2bv ( (gather (bv2v state) bitidxs) ++ repeat 0)
+  let
+    extractbit idx extractidx acc = 
+      replace idx ((bv2v state) !! (15-extractidx)) acc -- indexing is reversed hype
+  in
+    v2bv (reverse (ifoldr extractbit (repeat 0) bitidxs))
   
-  -- let
-  --   extractbit idx extractidx acc = 
-  --     replace idx ((bv2v state) !! (15-extractidx)) acc -- indexing is reversed hype
-  -- in
-  --   v2bv (ifoldr extractbit (repeat 0) bitidxs)
-  
-data Gate = H | CNOT deriving Show
+data Gate = H | CNOT | I deriving Show
 data CircuitElem = CircuitElem { cgate :: Gate, cbits :: Vec 2 StateIdx } deriving Show
 
-
+-- state count. oops
 gateQubitCount :: Gate -> Index 4
 gateQubitCount H = 2
+gateQubitCount I = 2
 gateQubitCount CNOT = 4
 
 -- qubit evaluation
-
 evaluategate :: Gate -> State -> State -> Amplitude
-evaluategate H 1 1 = Amplitude { real = -sqrt22, imag = 0 }
-evaluategate H _ _ = Amplitude { real =  sqrt22, imag = 0 } -- pattern matching!
+evaluategate H i o = evaluateH (slice d0 d0 i) (slice d0 d0 o)
+evaluategate I i o = evaluateI (slice d0 d0 i) (slice d0 d0 o)
+evaluategate CNOT i o = evaluateCNOT (slice d1 d0 i) (slice d1 d0 o)
+
+
+-- evaluategate' :: Gate -> State -> State -> Amplitude
+evaluateH :: BitVector 1 -> BitVector 1 -> Amplitude
+evaluateH 1 1 = Amplitude { real = -sqrt22, imag = zero }
+evaluateH _ _ = Amplitude { real =  sqrt22, imag = zero } -- pattern matching!
+
+evaluateI :: BitVector 1 -> BitVector 1 -> Amplitude
+evaluateI i o = if i == o
+                   then czero { real = 1 }
+                   else czero
 
 -- t-table for CNOT
 -- 00 -> 00
 -- 01 -> 01
 -- 10 -> 11
 -- 11 -> 10
-evaluategate CNOT 0 0 = Amplitude { real = 1, imag = 0 }
-evaluategate CNOT 1 1 = Amplitude { real = 1, imag = 0 }
-evaluategate CNOT 2 3 = Amplitude { real = 1, imag = 0 }
-evaluategate CNOT 3 2 = Amplitude { real = 1, imag = 0 }
-evaluategate CNOT _ _ = Amplitude { real = 0, imag = 0 } -- all other in-out pairs are 0
+evaluateCNOT :: BitVector 2 -> BitVector 2 -> Amplitude
+evaluateCNOT 0 0 = Amplitude { real = 1, imag = zero }
+evaluateCNOT 1 1 = Amplitude { real = 1, imag = zero }
+evaluateCNOT 2 3 = Amplitude { real = 1, imag = zero }
+evaluateCNOT 3 2 = Amplitude { real = 1, imag = zero }
+evaluateCNOT _ _ = Amplitude { real = zero, imag = zero } -- all other in-out pairs are 0
 
 -- 
 
@@ -177,11 +192,13 @@ emptyout = Output { output_workunit = Nothing, output_amp = Nothing, output_ptr_
 
 -- circuit defs
 
-type Circuit = Vec 2 CircuitElem
-type CircuitPtr = Index 3 -- Circuitlen + 1 
+type Circuit = Vec 16 CircuitElem
+type CircuitPtr = Index 17 -- Circuitlen + 1 -- verilator does not like large indices!
 
 apply_0 :: Vec 2 StateIdx = 0 :> 0:> Nil
 apply_1 :: Vec 2 StateIdx = 1 :> 0:> Nil
 
 h0 = CircuitElem { cgate=H :: Gate, cbits=apply_0 }
-circuit :: Circuit = repeat h0
+i0 = CircuitElem { cgate=I :: Gate, cbits=apply_0 }
+
+circuit :: Circuit = repeat i0

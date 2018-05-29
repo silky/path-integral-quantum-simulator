@@ -100,7 +100,7 @@ unpack_output_entity = exposeClockReset (mealy unpack_output ())
 --                            ampreply_dest_idx :: PtrT, ampreply_dest_pred_idx :: PredPtrT } deriving (Show, Generic, NFData)
 
 
-unpack_ampreply :: () -> Maybe AmpReply -> ((), (Bit, Signed 12, Signed 12, State, PtrT, PredPtrT))
+unpack_ampreply :: () -> Maybe AmpReply -> ((), (Bit, Signed 13, Signed 13, State, PtrT, PredPtrT))
 unpack_ampreply _ rply = ((), out)
   where
     out = if isJust rply then
@@ -138,7 +138,7 @@ unpack_ampreply_entity
   :: Clock System Source
   -> Reset System Asynchronous 
   -> Signal System (Maybe AmpReply)
-  -> Signal System (Bit, Signed 12, Signed 12, State, PtrT, PredPtrT)
+  -> Signal System (Bit, Signed 13, Signed 13, State, PtrT, PredPtrT)
 unpack_ampreply_entity = exposeClockReset (mealy unpack_ampreply ())
 
 

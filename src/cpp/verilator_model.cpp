@@ -7,6 +7,8 @@
 #include "Vunpack_output.h"
 #include "Vparse_ptr.h"
 
+// #include "VnetworkRTL.h"
+
 #include "Vjoin_input.h"
 #include "Vjoin_output.h"
 #include "Vsplit_input.h"
@@ -18,9 +20,9 @@
 #include "systemc"
 using namespace sc_core;
 
-const int WUSZ = 211;
-const int INBSZ = 260;
-const int OUTBSZ = INBSZ + 3;
+const int WUSZ = 222;
+const int INBSZ = 276;
+const int OUTBSZ = INBSZ;
 
 // SFixed 2 10
 #define SHIFT_AMOUNT 10 // 2^16 = 65536
@@ -63,9 +65,9 @@ SC_MODULE(stim_gen) {
       if (clkcnt == 1) {
         cout << "making request" << endl;
         inp_wu_valid.write(1);
-        depth.write(2);
-        target.write(1);
-        inital.write(1);
+        depth.write(4);
+        target.write(0);
+        inital.write(0);
       } else {
         inp_wu_valid.write(0);
       }
@@ -154,7 +156,7 @@ SC_MODULE(testoutput) {
   // split signals
   sc_signal<uint32_t>	pos; // NC
   sc_signal<vluint64_t>	amp;
-  sc_signal<sc_bv<211> > wu; // NC
+  sc_signal<sc_bv<WUSZ> > wu; // NC
 
 
 
@@ -204,40 +206,45 @@ SC_MODULE(Network) {
 
   private:
   // top output
-  sc_signal<sc_bv<263> >	top_output_bundle;
+  sc_signal<sc_bv<OUTBSZ> >	top_output_bundle;
 
   // join into top
-  sc_signal<sc_bv<211> > top_wu_input;
+  sc_signal<sc_bv<WUSZ> > top_wu_input;
   sc_signal<uint32_t> top_depthlim; // Fixed value
-  sc_signal<sc_bv<260>>	input_bundle_to_top;
+  sc_signal<sc_bv<INBSZ>>	input_bundle_to_top;
   
   // split from top - output_bundle_from_top is input here
   sc_signal<uint32_t>	top_pos_track;
   sc_signal<vluint64_t>	top_amp_output;
-  sc_signal<sc_bv<211> >	top_to_heightdiv_wu;
+  sc_signal<sc_bv<WUSZ> >	top_to_heightdiv_wu;
 
   // Heightdiv
   sc_signal<vluint64_t>	bottom_to_top_amp_rply;
-  sc_signal<sc_bv<211> >	bottom_high_req;
-  sc_signal<sc_bv<211> >	bottom_low_req;
+  sc_signal<sc_bv<WUSZ> >	bottom_high_req;
+  sc_signal<sc_bv<WUSZ> >	bottom_low_req;
 
   // join into bottom_low, bottom_high
   sc_signal<uint32_t> bottom_depthlim; // fixed value
   sc_signal<vluint64_t>	bottoms_amp_input; // fixed Nothing
-  sc_signal<sc_bv<260>>	input_bundle_to_bottom_low;
-  sc_signal<sc_bv<260>>	input_bundle_to_bottom_high;
+  sc_signal<sc_bv<INBSZ>>	input_bundle_to_bottom_low;
+  sc_signal<sc_bv<INBSZ>>	input_bundle_to_bottom_high;
 
   // bottom outputs
-  sc_signal<sc_bv<263> >	output_bundle_bottom_low;
-  sc_signal<sc_bv<263> >	output_bundle_bottom_high;
+  sc_signal<sc_bv<OUTBSZ> >	output_bundle_bottom_low;
+  sc_signal<sc_bv<OUTBSZ> >	output_bundle_bottom_high;
 
   // split from bottoms
   sc_signal<uint32_t>	pos_bottom_low;
   sc_signal<uint32_t>	pos_bottom_high;
   sc_signal<vluint64_t>	amp_bottom_high_to_div;
-  sc_signal<sc_bv<211> >	wu_bottom_high_tieoff;
+  sc_signal<sc_bv<WUSZ> >	wu_bottom_high_tieoff;
   sc_signal<vluint64_t>	amp_bottom_low_to_div;
-  sc_signal<sc_bv<211> >	wu_bottom_low_tieoff;
+  sc_signal<sc_bv<WUSZ> >	wu_bottom_low_tieoff;
+  
+  // debug
+  
+  sc_signal<bool> dbg_valid;
+  sc_signal<uint32_t> dbg_destidx, dbg_destpredidx, dbg_realpt, dbg_imagpt, dbg_targetstate;
   
   public:
   void run() {
@@ -253,6 +260,8 @@ SC_MODULE(Network) {
     
     if (bottom_to_top_amp_rply.read() != 0) {
        cout << "top got reply from lower" << endl;
+       cout << "dest[" << dbg_destidx << "][" << dbg_destpredidx << "=" << parse_fixed(dbg_realpt) << "+i" << parse_fixed(dbg_imagpt) << " state:" << dbg_targetstate << endl;
+       
     }
     
     if (amp_bottom_high_to_div.read() != 0) {
@@ -272,7 +281,8 @@ SC_MODULE(Network) {
     } 
   }
 
-  SC_CTOR(Network) : SCD(top_output_bundle, top_wu_input, top_depthlim, input_bundle_to_top, top_pos_track, top_to_heightdiv_wu, bottom_to_top_amp_rply, bottom_high_req, bottom_low_req, bottom_depthlim, bottoms_amp_input, input_bundle_to_bottom_low, input_bundle_to_bottom_high, output_bundle_bottom_low, output_bundle_bottom_high, pos_bottom_low, pos_bottom_high, amp_bottom_high_to_div, wu_bottom_high_tieoff, amp_bottom_low_to_div, wu_bottom_low_tieoff) {
+  SC_CTOR(Network) : SCD(top_output_bundle, top_wu_input, top_depthlim, input_bundle_to_top, top_pos_track, top_to_heightdiv_wu, bottom_to_top_amp_rply, bottom_high_req, bottom_low_req, bottom_depthlim, bottoms_amp_input, input_bundle_to_bottom_low, input_bundle_to_bottom_high, output_bundle_bottom_low, output_bundle_bottom_high, pos_bottom_low, pos_bottom_high, amp_bottom_high_to_div, wu_bottom_high_tieoff, amp_bottom_low_to_div, wu_bottom_low_tieoff),
+  SCD(dbg_valid, dbg_destidx, dbg_destpredidx, dbg_realpt, dbg_imagpt, dbg_targetstate) {
     SC_METHOD(run);
     sensitive_pos(clk);
 
@@ -289,7 +299,7 @@ SC_MODULE(Network) {
     top_joiner->clk(clk);
     top_joiner->rst(rst);
     
-    top_joiner->depthlim(top_depthlim); top_depthlim.write(1);
+    top_joiner->depthlim(top_depthlim); top_depthlim.write(0);
     top_joiner->amp(bottom_to_top_amp_rply);
     top_joiner->wu(top_wu_input);
     top_joiner->input_bundle(input_bundle_to_top);
@@ -315,6 +325,21 @@ SC_MODULE(Network) {
     heightdiv->downstream_high_rply(amp_bottom_high_to_div);
     heightdiv->downstream_low_req(bottom_low_req);
     heightdiv->downstream_low_rply(amp_bottom_low_to_div);
+    
+    // heightdiv to top parser
+    
+    Vunpack_ampreply *debug_ampparser = new Vunpack_ampreply("debug_ampparser");
+    debug_ampparser->clk(clk);
+    debug_ampparser->rst(rst);
+    
+    debug_ampparser->ampreply(bottom_to_top_amp_rply);
+    
+    debug_ampparser->valid(dbg_valid);
+    debug_ampparser->destidx(dbg_destidx);
+    debug_ampparser->destpredidx(dbg_destpredidx);
+    debug_ampparser->realpt(dbg_realpt);
+    debug_ampparser->imagpt(dbg_imagpt);
+    debug_ampparser->targetstate(dbg_targetstate);
     
     // bottom_low
     
@@ -389,6 +414,7 @@ int sc_main(int argc, char **argv) {
   finish_cond = new testoutput("finishcond");
 
   Network *net = new Network("Network");
+  // VnetworkRTL *net = new VnetworkRTL("topNetwork");
 
   stim->clk(clk);
   stim->rst(rst);
@@ -406,6 +432,6 @@ int sc_main(int argc, char **argv) {
   net->network_result(outputbundle);
   finish_cond->networkoutput(outputbundle);
 
-  sc_start(1000, SC_NS);
+  sc_start(10000, SC_NS);
   exit(0);
 }

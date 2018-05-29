@@ -108,13 +108,21 @@ makerequests depthsplit wlist ptr =
       let
         newwu = emptywu { wu_target=trace ("adding new wu targetting " L.++ (show newtarget)) newtarget,
                           wu_inital=(wu_inital wu),
-                          wu_depth=destdepth, -- wu_returnloc=RT_LOCAL,
-                          wu_ampreply_dest_idx=ptr, wu_ampreply_dest_pred_idx=idxtoreq }
+                          wu_depth=destdepth,
+                          wu_ampreply_dest_pred_idx=idxtoreq }
       in let
         (wlist', remote_req, ptr') = if destdepth >= depthsplit then 
-                                (replace (ptr+1) (newwu { wu_returnloc=RT_LOCAL }) wlist, Nothing, ptr+1)
+                                (replace (ptr+1) (newwu { 
+                                                    wu_ampreply_dest_idx=ptr,
+                                                    wu_returnloc=RT_LOCAL 
+                                                  }) wlist,
+                                 Nothing, ptr+1)
                               else
-                                (wlist, Just (newwu { wu_returnloc=RT_UPSTREAM }), ptr) -- make a remote request!
+                                (wlist, Just (newwu { 
+                                                wu_ampreply_dest_idx=ptr,
+                                                wu_returnloc=RT_UPSTREAM 
+                                              }), 
+                                 ptr) -- make a remote request!
       in let
         wlist'' = replace ptr (wu { wu_deps = replace idxtoreq DS_REQUESTED (wu_deps wu) }) wlist' -- mark as requested
       in
@@ -127,17 +135,6 @@ makerequests depthsplit wlist ptr =
         (wlist', ptr, Nothing)
 
     else --SHOULD NOT BE HERE?
-      -- let
-      --   request = Just emptywu {
-      --     wu_target = newtarget,
-      --     wu_inital = (wu_inital wu),
-      --     wu_depth = destdepth,
-      --     wu_returnloc = RT_UPSTREAM,
-      --     wu_ampreply_dest_idx = ptr,
-      --     wu_ampreply_dest_pred_idx = idxtoreq
-      --   }
-      -- in
-      --   (wlist, ptr, request) -- TODO FIXME XXX
       (wlist, ptr, Nothing)
 
 {-# INLINE canevaluate #-}

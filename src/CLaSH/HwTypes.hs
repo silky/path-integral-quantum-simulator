@@ -94,12 +94,7 @@ arity I = 1
 -- take the bitidxs from state and shift into an otherwise empty state, tested
 extractbits :: Vec 2 (Index 16) -> State -> State
 extractbits bitidxs state =
-  -- v2bv ( (gather (bv2v state) bitidxs) ++ repeat 0)
-  let
-    extractbit idx extractidx acc = 
-      replace idx ((bv2v state) !! (15-extractidx)) acc -- indexing is reversed hype
-  in
-    v2bv (reverse (ifoldr extractbit (repeat 0) bitidxs))
+  v2bv (reverse ((gather (reverse (bv2v state)) bitidxs) ++ repeat 0))
   
 data Gate = H | CNOT | I deriving Show
 data CircuitElem = CircuitElem { cgate :: Gate, cbits :: Vec 2 StateIdx } deriving Show

@@ -96,31 +96,74 @@ module top(
     );
     
     // DUT to (un)packing modules
-    wire [259:0] input_bundle_w;
-    wire [262:0] output_bundle_w;
     wire done;
-    reg [1:0] inp_splitdepth = 0; // full depth
+    reg [1:0] inp_splitdepth = 0; // totally ignored by pack_workunit
+    reg [15:0] target_input = 0;
+    reg [15:0] inital_input = 0;
+    reg [4:0]  depth_input  = 4; // total num of gates to process.
     reg inp_wu_valid = 0;
     
-    findamp DUT( .clk(clk), .input_bundle(input_bundle_w), .output_bundle(output_bundle_w) );
-    unpack_output OPARSE( .clk(clk), .output_bundle(output_bundle_w),
-                          .outp_amp_valid(done),
-                          .outp_wu(outp_wu) );
-    pack_input PACK( .clk(clk), .input_bundle(input_bundle_w),
-                     .inp_splitdepth(inp_splitdepth),
-                     .target(target[15:0]), .inital(inital[15:0]), .depth(control[2:1]),
-                     .inp_wu_valid(inp_wu_valid)
-                   );
+    wire [221:0] wu_input;
+    wire [275:0] network_result;
+     
+    networkRTL network(
+        .clk(clk),
+        .rst(rst),
+        .stim_wu(wu_input),
+        .network_result(network_result)
+        );
+    
+    pack_workunit inputpacker(.clk(clk), .rst(rst),
+                        .inp_splitdepth(inp_splitdepth),
+                        .target(target_input),
+                        .inital(inital_input),
+                        .depth(depth_input),
+                        .inp_wu_valid(inp_wu_valid),
+                        .workunit(wu_input));
+    
+    wire [210:0] wu_out;
+    wire [48:0] amp_out;
+    wire [4:0] pos_out;
+    
+    split_output outsplit( 
+        .clk(clk), .rst(rst),
+        .output_bundle(network_result),
+        .wu(wu_out),
+        .amp(amp_out),
+        .pos(pos_out)
+        );
+
+    // amprply parts
+    wire signed [12:0] realpt;
+    wire signed [12:0] imagpt;
+    reg signed [12:0] lastreal = 0;
+    
+    unpack_ampreply unpackamp( 
+        .clk(clk), .rst(rst),
+        .ampreply(amp_out),
+        .valid(done),
+        .realpt(realpt),
+        .imagpt(imagpt)
+        );
+
+    wire signed [31:0] ptrparsed;
+    parse_ptr parseptr( // Inputs
+        .clk(clk), .rst(rst),
+        .ptrbundle(pos_out),
+        .ptrparsed(ptrparsed)
+        );
+    
 
     
     // states: 0: rst 1: wait 2: exec 3: return
     reg [1:0] state = 0;
     
     always @(posedge clk) begin
-      status <= { 29'd0, ready, state };
+      status <= { lastreal, 10'd0, ptrparsed[6:0], ready, state };
     end
     
     always @(posedge clk) begin
+    
       if (rst == 1'b1 ) begin
         state <= 0;
       end
@@ -142,6 +185,7 @@ module top(
         
         2'd2: begin
                 if (done == 1) begin
+                  lastreal <= realpt;
                   state <= 3;
                 end else begin
                   state <= 2;
@@ -158,7 +202,7 @@ module top(
       endcase
     end
     
-    assign allones = ^outp_wu;
+    assign allones = ^network_result;
     
     
 endmodule

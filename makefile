@@ -36,7 +36,7 @@ SPLITTERS = build/verilog/join_input.v \
 CLASH_MOD_NAMES = findamp heightdiv # real work done here
 CLASH_MOD_NAMES += pack_input unpack_output unpack_ampreply pack_workunit parse_ptr # extracting base values
 CLASH_MOD_NAMES += split_input join_input split_output join_output # splitting record types
-
+ALLV = $(CLASH_MOD_NAMES) networkRTL
 
 packages:
 	mono nuget.exe install MathNet.Numerics -Pre -OutputDirectory packages
@@ -182,3 +182,9 @@ clash: build/verilog/findamp.v build/clashsplitters build/clashinterfaces
 
 bwplots:
 	python3 src/Python/socket_bandwidth_plot.py bwlog.csv 20us
+	
+build/timing_report.txt:$(addprefix build/verilog/,$(addsuffix .v,$(ALLV))) src/timing.tcl
+	vivado -mode batch -source src/timing.tcl -tclargs `find build/verilog -name "*.v"`
+
+testtiming: build/timing_report.txt
+	python3 src/Python/extract_wslack.py

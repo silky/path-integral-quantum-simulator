@@ -141,7 +141,7 @@ unpack_ampreply_entity
   -> Signal System (Bit, Signed 13, Signed 13, State, PtrT, PredPtrT)
 unpack_ampreply_entity = exposeClockReset (mealy unpack_ampreply ())
 
-
+-- ignores splitdepth (ovs), should remove
 pack_workunit :: () -> (CircuitPtr, (State, State, CircuitPtr), Bit) -> ((), Maybe WorkUnit)
 pack_workunit _ (splitdepth, (target, inital, depth), wu_enb) =
   let

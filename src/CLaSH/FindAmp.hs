@@ -6,6 +6,10 @@ import HwTypes
 import Debug.Trace
 import qualified Data.List as L
 
+type WorkList = Vec 5 WorkUnit -- Circuitlen + 1 (or the depth of this module+1)
+data ModuleState n = ModuleState { state_worklist :: Vec n WorkUnit, state_workpos :: PtrT, state_wlist_empty :: Bool } -- signed to allow for -1: invalid signal (sas the wlist is a pow2 no spare signalling value without adding a bit)
+
+
 {-# INLINE complete_elem #-}
 complete_elem :: Enum i => WorkUnit -> i -> Amplitude -> WorkUnit
 complete_elem wu predidx amp =
@@ -13,7 +17,7 @@ complete_elem wu predidx amp =
        wu_deps = replace predidx DS_COMPLETE (wu_deps wu) }
 
 {-# INLINE input_amp_update #-}
-input_amp_update :: WorkList -> Maybe AmpReply -> WorkList
+input_amp_update :: KnownNat n => Vec n WorkUnit -> Maybe AmpReply -> Vec n WorkUnit
 input_amp_update wlist update = 
   if isJust update then 
     let
@@ -31,7 +35,7 @@ input_amp_update wlist update =
     wlist
 
 {-# INLINE input_wu_update #-}
-input_wu_update :: WorkList -> PtrT -> Bool -> Maybe WorkUnit -> (WorkList, PtrT, Bool)
+input_wu_update :: KnownNat n => Vec n WorkUnit -> PtrT -> Bool -> Maybe WorkUnit -> (Vec n WorkUnit, PtrT, Bool)
 input_wu_update wlist ptr empty wu =
   if isJust wu then
     let
@@ -43,7 +47,7 @@ input_wu_update wlist ptr empty wu =
 
 
 {-# INLINE evaluatewu #-}
-evaluatewu :: WorkList -> PtrT -> (WorkList, Maybe AmpReply)
+evaluatewu :: KnownNat n => Vec n WorkUnit -> PtrT -> (Vec n WorkUnit, Maybe AmpReply)
 evaluatewu wlist ptr =
   let
     wu = wlist !! ptr
@@ -85,7 +89,7 @@ evaluatewu wlist ptr =
 
 -- This function transitions wu's from DS_INIT to either DS_REQUESTED or DS_DONT_CARE.
 {-# INLINE makerequests #-}
-makerequests :: CircuitPtr -> WorkList -> PtrT -> (WorkList, PtrT, Maybe WorkUnit)
+makerequests :: KnownNat n => CircuitPtr -> Vec n WorkUnit -> PtrT -> (Vec n WorkUnit, PtrT, Maybe WorkUnit)
 makerequests depthsplit wlist ptr = 
   let
     wu = wlist !! ptr
@@ -150,7 +154,7 @@ requestsmade wu = foldl (\acc v -> if not (v == DS_INIT) then acc else False) Tr
 -- else we try and make a "recursive" request, or wait.
 -- we know it's not empty
 {-# INLINE tryevaluate #-}
-tryevaluate :: CircuitPtr -> WorkList -> PtrT -> (WorkList, PtrT, Bool, Output)
+tryevaluate :: KnownNat n => CircuitPtr -> Vec n WorkUnit -> PtrT -> (Vec n WorkUnit, PtrT, Bool, Output)
 tryevaluate depthsplitpt wlist ptr =
   if canevaluate (wlist !! ptr) then
     let
@@ -189,8 +193,8 @@ tryevaluate depthsplitpt wlist ptr =
     (wlist, ptr, False, emptyout) -- we know the wlist is not empty
 
 
-findamp_mealy :: ModuleState -> Input -> (ModuleState, Output)
-findamp_mealy state input = 
+findamp_mealy_N :: KnownNat n => ModuleState n -> Input -> (ModuleState n, Output)
+findamp_mealy_N state input = 
   let
     worklist' = if not (state_wlist_empty state) then
        input_amp_update (state_worklist state) (input_amp input)
@@ -198,7 +202,7 @@ findamp_mealy state input =
       (state_worklist state) -- we can't update any states if it's empty
 
   in let
-    (worklist'' :: WorkList, ptr'', empty'') = input_wu_update worklist' (state_workpos state) (state_wlist_empty state) (input_wu input)
+    (worklist'', ptr'', empty'') = input_wu_update worklist' (state_workpos state) (state_wlist_empty state) (input_wu input)
 
   in let
     (worklist''', ptr''', empty''', output) = if not empty'' then -- skip if no work to do!
@@ -209,8 +213,8 @@ findamp_mealy state input =
   in
     (ModuleState { state_worklist = worklist''', state_workpos = ptr''', state_wlist_empty = empty''' }, output { output_ptr_dbg = if not empty''' then Just ptr''' else Nothing })
 
-
-initalstate = ModuleState { state_worklist = repeat emptywu, state_workpos = 0, state_wlist_empty = True }
+-- findamp_mealy = findamp_mealy_N d5
+initalstate :: ModuleState 5 = ModuleState { state_worklist = repeat emptywu, state_workpos = 0, state_wlist_empty = True }
 
 {-# ANN topEntity
   (Synthesize
@@ -228,7 +232,7 @@ topEntity
   -> Reset System Asynchronous 
   -> Signal System Input
   -> Signal System Output
-topEntity = exposeClockReset (mealy findamp_mealy initalstate)
+topEntity = exposeClockReset (mealy findamp_mealy_N initalstate)
 
 
 -- hardwaretranslate blocks let you go from Maybe x to (Bit, x)

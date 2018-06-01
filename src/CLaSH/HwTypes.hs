@@ -171,8 +171,11 @@ emptywu = WorkUnit { -- need defaults for non-Maybe (i.e. HW) types
   wu_ampreply_dest_pred_idx = 0
 }
 
-type WorkList = Vec 16 WorkUnit -- Circuitlen + 1 (or the depth of this module+1)
-type PtrT = Index 16 --Signed 7 -- ptr to a worklist element
+-- type WorkList = Vec 5 WorkUnit -- Circuitlen + 1 (or the depth of this module+1)
+-- type PtrT = Index 5 --Signed 7 -- ptr to a worklist element
+-- data ModuleState = ModuleState { state_worklist :: WorkList, state_workpos :: PtrT, state_wlist_empty :: Bool } -- signed to allow for -1: invalid signal (sas the wlist is a pow2 no spare signalling value without adding a bit)
+
+type PtrT = Index 33 --Signed 7 -- ptr to a worklist element. we need this globaly as it goes in the workunit request
 
 data AmpReply = AmpReply { ampreply_target :: State, ampreply_amplitude :: Amplitude,
                            ampreply_dest_idx :: PtrT, ampreply_dest_pred_idx :: PredPtrT } deriving (Show, Generic, NFData)
@@ -180,15 +183,14 @@ data AmpReply = AmpReply { ampreply_target :: State, ampreply_amplitude :: Ampli
 emptyamp = AmpReply { ampreply_target = 0, ampreply_amplitude = czero,
                       ampreply_dest_idx  =0, ampreply_dest_pred_idx = 0 }
 
-data ModuleState = ModuleState { state_worklist :: WorkList, state_workpos :: PtrT, state_wlist_empty :: Bool } -- signed to allow for -1: invalid signal (sas the wlist is a pow2 no spare signalling value without adding a bit)
 data Input = Input { input_wu :: Maybe WorkUnit, input_amp :: Maybe AmpReply, input_depth_split :: CircuitPtr } deriving (Show, Generic, NFData)
 data Output = Output { output_workunit :: Maybe WorkUnit, output_amp :: Maybe AmpReply, output_ptr_dbg :: Maybe PtrT } deriving (Show, Generic, NFData)
 emptyout = Output { output_workunit = Nothing, output_amp = Nothing, output_ptr_dbg = Nothing }
 
 -- circuit defs
 
-type Circuit = Vec 16 CircuitElem
-type CircuitPtr = Index 17 -- Circuitlen + 1 -- verilator does not like large indices!
+type Circuit = Vec 4 CircuitElem
+type CircuitPtr = Index 5 -- Circuitlen + 1 -- verilator does not like large indices!
 
 apply_0 :: Vec 2 StateIdx = 0 :> 0:> Nil
 apply_1 :: Vec 2 StateIdx = 1 :> 0:> Nil

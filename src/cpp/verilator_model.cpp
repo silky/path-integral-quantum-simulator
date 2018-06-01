@@ -16,13 +16,14 @@
 #include <bitset>
 
 #include "sc_vardefs.h"
+#include "widths.h"
 
 #include "systemc"
 using namespace sc_core;
-
-const int WUSZ = 222;
-const int INBSZ = 276;
-const int OUTBSZ = INBSZ;
+// 
+// const int WUSZ = 222;
+// const int INBSZ = 276;
+// const int OUTBSZ = INBSZ;
 
 // SFixed 2 10
 #define SHIFT_AMOUNT 10 // 2^16 = 65536
@@ -50,8 +51,8 @@ SC_MODULE(stim_gen) {
   sc_signal<uint32_t> inital;
   // sc_signal<vluint64_t>	inp_amp;
 
-  sc_signal<sc_bv<WUSZ>> wu_sig;
-  sc_out<sc_bv<WUSZ>> workunit;
+  sc_signal<sc_biguint<WUSZ>> wu_sig;
+  sc_out<sc_biguint<WUSZ>> workunit;
 
   void do_stim() {
     if (rst) {
@@ -65,7 +66,7 @@ SC_MODULE(stim_gen) {
       if (clkcnt == 1) {
         cout << "making request" << endl;
         inp_wu_valid.write(1);
-        depth.write(4);
+        depth.write(2);
         target.write(0);
         inital.write(0);
       } else {
@@ -140,7 +141,7 @@ SC_MODULE(testoutput) {
   sc_in<bool> clk;
   sc_in<bool> rst;
 
-  sc_in<sc_bv<OUTBSZ>> networkoutput;
+  sc_in<sc_biguint<OUTBSZ>> networkoutput;
 
   // sc_in<> networkoutput;
   sc_signal<bool> gotamp;
@@ -156,7 +157,7 @@ SC_MODULE(testoutput) {
   // split signals
   sc_signal<uint32_t>	pos; // NC
   sc_signal<vluint64_t>	amp;
-  sc_signal<sc_bv<WUSZ> > wu; // NC
+  sc_signal<sc_biguint<WUSZ> > wu; // NC
 
 
 
@@ -201,45 +202,45 @@ SC_MODULE(Network) {
   sc_in<bool> clk;
   sc_in<bool> rst;
 
-  sc_in<sc_bv<WUSZ>> stim_wu;
-  sc_out<sc_bv<OUTBSZ>> network_result;
+  sc_in<sc_biguint<WUSZ>> stim_wu;
+  sc_out<sc_biguint<OUTBSZ>> network_result;
 
   private:
   // top output
-  sc_signal<sc_bv<OUTBSZ> >	top_output_bundle;
+  sc_signal<sc_biguint<OUTBSZ> >	top_output_bundle;
 
   // join into top
-  sc_signal<sc_bv<WUSZ> > top_wu_input;
+  sc_signal<sc_biguint<WUSZ> > top_wu_input;
   sc_signal<uint32_t> top_depthlim; // Fixed value
-  sc_signal<sc_bv<INBSZ>>	input_bundle_to_top;
+  sc_signal<sc_biguint<INBSZ>>	input_bundle_to_top;
   
   // split from top - output_bundle_from_top is input here
   sc_signal<uint32_t>	top_pos_track;
   sc_signal<vluint64_t>	top_amp_output;
-  sc_signal<sc_bv<WUSZ> >	top_to_heightdiv_wu;
+  sc_signal<sc_biguint<WUSZ> >	top_to_heightdiv_wu;
 
   // Heightdiv
   sc_signal<vluint64_t>	bottom_to_top_amp_rply;
-  sc_signal<sc_bv<WUSZ> >	bottom_high_req;
-  sc_signal<sc_bv<WUSZ> >	bottom_low_req;
+  sc_signal<sc_biguint<WUSZ> >	bottom_high_req;
+  sc_signal<sc_biguint<WUSZ> >	bottom_low_req;
 
   // join into bottom_low, bottom_high
   sc_signal<uint32_t> bottom_depthlim; // fixed value
   sc_signal<vluint64_t>	bottoms_amp_input; // fixed Nothing
-  sc_signal<sc_bv<INBSZ>>	input_bundle_to_bottom_low;
-  sc_signal<sc_bv<INBSZ>>	input_bundle_to_bottom_high;
+  sc_signal<sc_biguint<INBSZ>>	input_bundle_to_bottom_low;
+  sc_signal<sc_biguint<INBSZ>>	input_bundle_to_bottom_high;
 
   // bottom outputs
-  sc_signal<sc_bv<OUTBSZ> >	output_bundle_bottom_low;
-  sc_signal<sc_bv<OUTBSZ> >	output_bundle_bottom_high;
+  sc_signal<sc_biguint<OUTBSZ> >	output_bundle_bottom_low;
+  sc_signal<sc_biguint<OUTBSZ> >	output_bundle_bottom_high;
 
   // split from bottoms
   sc_signal<uint32_t>	pos_bottom_low;
   sc_signal<uint32_t>	pos_bottom_high;
   sc_signal<vluint64_t>	amp_bottom_high_to_div;
-  sc_signal<sc_bv<WUSZ> >	wu_bottom_high_tieoff;
+  sc_signal<sc_biguint<WUSZ> >	wu_bottom_high_tieoff;
   sc_signal<vluint64_t>	amp_bottom_low_to_div;
-  sc_signal<sc_bv<WUSZ> >	wu_bottom_low_tieoff;
+  sc_signal<sc_biguint<WUSZ> >	wu_bottom_low_tieoff;
   
   // debug
   
@@ -424,8 +425,8 @@ int sc_main(int argc, char **argv) {
   net->rst(rst);
 
   // introduce a request into the network
-  sc_signal<sc_bv<WUSZ>> SCD(stim_wu);
-  sc_signal<sc_bv<OUTBSZ>> SCD(outputbundle);
+  sc_signal<sc_biguint<WUSZ>> SCD(stim_wu);
+  sc_signal<sc_biguint<OUTBSZ>> SCD(outputbundle);
 
   stim->workunit(stim_wu);
   net->stim_wu(stim_wu);

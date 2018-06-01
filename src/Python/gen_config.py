@@ -45,12 +45,15 @@ class Base():
 
 class Network(object):
     
-    def __init__(self, split_locs, nqubits):
+    def __init__(self, split_locs, nqubits, depth):
         self.amps = []
         self.divs = []
         self.bases = []
         self.inits = []
         self.qubits = nqubits
+        self.depth = depth
+        self.splits = split_locs
+        self.circuitarities = [2] * self.depth # worst case
         
         # root of the tree.
         splitranges = list(zip( split_locs+[0], ["ROOT"]+split_locs ))
@@ -92,4 +95,53 @@ class Network(object):
         divs = [str(div) for div in self.divs]
         config = "\n".join([header] + amps + divs)
         return config
+
+    def time(self, depth=None):
+        """ Estimates the number of clock cycles needed for a given circuit layout. Returns number of clocks.
+        """
+        if depth is None:
+            depth = self.depth
+        
+        if depth == 0:
+            return 2
+        
+        reccalls = 2**self.circuitarities[depth-1]; # zero depth is base case
+        callcount = reccalls / 2 if (depth in self.splits) else reccalls
+        divdelay = 1 if (depth in self.splits) else 0
+        recdelay = callcount * self.time(depth=depth-1)
+        ourdelay = 4
+        return ourdelay + divdelay + recdelay
+
+    def _LUTs(self, stacksize):
+        """Calculates a estimate size for a findamp module based upon the required stack size.
+        """
+        return int(stacksize*1798 - 2600)
+
+    def area(self, maxparallel=1, depth=None):
+        # stack required is the depth * max wu's in progress.
+        if depth is None: # start at the top
+            depth = self.depth
+        
+        limit = max(list(filter(lambda s: s<depth, self.splits)) + [0])
+        ourdepth = depth - limit
+        
+        if limit == 0: # we are bottom
+            return maxparallel * self._LUTs(ourdepth)
+        else:
+            return (maxparallel * self._LUTs(ourdepth)) + \
+                   self.area(maxparallel=maxparallel*2, depth=limit)
+         
+
+
+
+# def time(depth, splits, circuitarities):
+#     if depth == 0:
+#         return 2
+# 
+#     reccalls = 2**circuitarities[depth];
+#     callcount = reccalls / 2 if (depth in splits) else reccalls
+#     divdelay = 1 if (depth in splits) else 0
+#     recdelay = callcount * time(depth-1, splits, circuitarities)
+#     ourdelay = 4
+#     return ourdelay + divdelay + recdelay
 

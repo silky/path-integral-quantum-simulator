@@ -4,13 +4,18 @@ from gen_config import Network
 # from split_points import splits
 import sys
 # import numpy as np
+from signal_widths import OUTPUT_BUNDLE_WIDTH, INPUT_BUNDLE_WIDTH, WORKUNIT_WIDTH
+
+
+
+
 
 
 # N = int(sys.argv[1])
 # split_pos = splits(N, depth, a, b)[::-1]
 # if (np.diff(split_pos) == 0).any():
 #     raise IndexError
-network = Network(split_locs=[1], nqubits=2)
+network = Network(split_locs=[1], nqubits=2, depth=2)
 # len(nosplits.amps)
 
 # const int WUSZ = 222;
@@ -18,9 +23,9 @@ network = Network(split_locs=[1], nqubits=2)
 # const int OUTBSZ = INBSZ;
 
 
-WUSZ = 222;
-INBSZ = 276;
-OUTBSZ = 276;
+WUSZ = WORKUNIT_WIDTH;
+INBSZ = INPUT_BUNDLE_WIDTH;
+OUTBSZ = OUTPUT_BUNDLE_WIDTH;
 AMPSZ = 47;
 POSSZ = 5;
 
@@ -33,7 +38,7 @@ network.divs[0].left.idx
 # general principle: declare wires by the source, assume existance at destination
 import sys, os
 
-pathname = os.path.dirname(sys.argv[0])  
+pathname = os.path.dirname(sys.argv[0])
 src = os.path.split(pathname)[0]
 verilog = os.path.join(src, "verilog", "networkRTL.tmpl.v")
 print("template", verilog)

@@ -20,7 +20,7 @@
 
 #include "systemc"
 using namespace sc_core;
-// 
+//
 // const int WUSZ = 222;
 // const int INBSZ = 276;
 // const int OUTBSZ = INBSZ;
@@ -51,8 +51,8 @@ SC_MODULE(stim_gen) {
   sc_signal<uint32_t> inital;
   // sc_signal<vluint64_t>	inp_amp;
 
-  sc_signal<sc_biguint<WUSZ>> wu_sig;
-  sc_out<sc_biguint<WUSZ>> workunit;
+  sc_signal<sc_bv<WUSZ>> wu_sig;
+  sc_out<sc_bv<WUSZ>> workunit;
 
   void do_stim() {
     if (rst) {
@@ -110,14 +110,14 @@ SC_MODULE (print_ampreply) {
     sc_signal<uint32_t>	targetstate;
 
     public:
-        
+
     void run() {
         if (valid.read() != 0) {
             cout << "got a amp reply for target:" << targetstate << " wu[" << destidx << "][" << destpredidx << "]:" <<
-            parse_fixed(realpt) << "+" << parse_fixed(imagpt) << "i" << endl; 
+            parse_fixed(realpt) << "+" << parse_fixed(imagpt) << "i" << endl;
         }
     }
-        
+
     SC_CTOR(print_ampreply) : SCD(valid, destidx, destpredidx, realpt, imagpt, targetstate) {
         SC_METHOD(run);
         sensitive_pos(clk);
@@ -125,7 +125,7 @@ SC_MODULE (print_ampreply) {
         Vunpack_ampreply* ampunpk = new Vunpack_ampreply("printer_unpacker");
         ampunpk->clk(clk);
         ampunpk->rst(rst);
-        
+
         ampunpk->valid(valid);
         ampunpk->ampreply(ampreply);
         ampunpk->destidx(destidx);
@@ -141,23 +141,23 @@ SC_MODULE(testoutput) {
   sc_in<bool> clk;
   sc_in<bool> rst;
 
-  sc_in<sc_biguint<OUTBSZ>> networkoutput;
+  sc_in<sc_bv<OUTBSZ>> networkoutput;
 
   // sc_in<> networkoutput;
   sc_signal<bool> gotamp;
   sc_signal<uint32_t> realpt;
-  
+
 
   // ampparser signals
   sc_signal<uint32_t> destidx;     // NC
   sc_signal<uint32_t> destpredidx; // NC
   sc_signal<uint32_t> imagpt;      // NC
   sc_signal<uint32_t> targetstate; // NC
-  
+
   // split signals
   sc_signal<uint32_t>	pos; // NC
   sc_signal<vluint64_t>	amp;
-  sc_signal<sc_biguint<WUSZ> > wu; // NC
+  sc_signal<sc_bv<WUSZ> > wu; // NC
 
 
 
@@ -178,16 +178,16 @@ SC_MODULE(testoutput) {
     Vunpack_ampreply *ampparser = new Vunpack_ampreply("amp_parser_tester");
     ampparser->clk(clk);
     ampparser->rst(rst);
-    
+
     Vsplit_output *splitter = new Vsplit_output("splitter");
     splitter->clk(clk);
     splitter->rst(rst);
-    
+
     splitter->output_bundle(networkoutput);
     splitter->pos(pos);
     splitter->amp(amp);
     splitter->wu(wu);
-    
+
     ampparser->ampreply(amp); // From outunpack
     ampparser->valid(gotamp);
     ampparser->destidx(destidx);
@@ -202,51 +202,51 @@ SC_MODULE(Network) {
   sc_in<bool> clk;
   sc_in<bool> rst;
 
-  sc_in<sc_biguint<WUSZ>> stim_wu;
-  sc_out<sc_biguint<OUTBSZ>> network_result;
+  sc_in<sc_bv<WUSZ>> stim_wu;
+  sc_out<sc_bv<OUTBSZ>> network_result;
 
   private:
   // top output
-  sc_signal<sc_biguint<OUTBSZ> >	top_output_bundle;
+  sc_signal<sc_bv<OUTBSZ> >	top_output_bundle;
 
   // join into top
-  sc_signal<sc_biguint<WUSZ> > top_wu_input;
+  sc_signal<sc_bv<WUSZ> > top_wu_input;
   sc_signal<uint32_t> top_depthlim; // Fixed value
-  sc_signal<sc_biguint<INBSZ>>	input_bundle_to_top;
-  
+  sc_signal<sc_bv<INBSZ>>	input_bundle_to_top;
+
   // split from top - output_bundle_from_top is input here
   sc_signal<uint32_t>	top_pos_track;
   sc_signal<vluint64_t>	top_amp_output;
-  sc_signal<sc_biguint<WUSZ> >	top_to_heightdiv_wu;
+  sc_signal<sc_bv<WUSZ> >	top_to_heightdiv_wu;
 
   // Heightdiv
   sc_signal<vluint64_t>	bottom_to_top_amp_rply;
-  sc_signal<sc_biguint<WUSZ> >	bottom_high_req;
-  sc_signal<sc_biguint<WUSZ> >	bottom_low_req;
+  sc_signal<sc_bv<WUSZ> >	bottom_high_req;
+  sc_signal<sc_bv<WUSZ> >	bottom_low_req;
 
   // join into bottom_low, bottom_high
   sc_signal<uint32_t> bottom_depthlim; // fixed value
   sc_signal<vluint64_t>	bottoms_amp_input; // fixed Nothing
-  sc_signal<sc_biguint<INBSZ>>	input_bundle_to_bottom_low;
-  sc_signal<sc_biguint<INBSZ>>	input_bundle_to_bottom_high;
+  sc_signal<sc_bv<INBSZ>>	input_bundle_to_bottom_low;
+  sc_signal<sc_bv<INBSZ>>	input_bundle_to_bottom_high;
 
   // bottom outputs
-  sc_signal<sc_biguint<OUTBSZ> >	output_bundle_bottom_low;
-  sc_signal<sc_biguint<OUTBSZ> >	output_bundle_bottom_high;
+  sc_signal<sc_bv<OUTBSZ> >	output_bundle_bottom_low;
+  sc_signal<sc_bv<OUTBSZ> >	output_bundle_bottom_high;
 
   // split from bottoms
   sc_signal<uint32_t>	pos_bottom_low;
   sc_signal<uint32_t>	pos_bottom_high;
   sc_signal<vluint64_t>	amp_bottom_high_to_div;
-  sc_signal<sc_biguint<WUSZ> >	wu_bottom_high_tieoff;
+  sc_signal<sc_bv<WUSZ> >	wu_bottom_high_tieoff;
   sc_signal<vluint64_t>	amp_bottom_low_to_div;
-  sc_signal<sc_biguint<WUSZ> >	wu_bottom_low_tieoff;
-  
+  sc_signal<sc_bv<WUSZ> >	wu_bottom_low_tieoff;
+
   // debug
-  
+
   sc_signal<bool> dbg_valid;
   sc_signal<uint32_t> dbg_destidx, dbg_destpredidx, dbg_realpt, dbg_imagpt, dbg_targetstate;
-  
+
   public:
   void run() {
     if (top_wu_input.read() != 0) {
@@ -258,13 +258,13 @@ SC_MODULE(Network) {
     if (bottom_low_req.read() != 0) {
        cout << "bottom_low_req" << endl;
     }
-    
+
     if (bottom_to_top_amp_rply.read() != 0) {
        cout << "top got reply from lower" << endl;
        cout << "dest[" << dbg_destidx << "][" << dbg_destpredidx << "=" << parse_fixed(dbg_realpt) << "+i" << parse_fixed(dbg_imagpt) << " state:" << dbg_targetstate << endl;
-       
+
     }
-    
+
     if (amp_bottom_high_to_div.read() != 0) {
        cout << "bottom_high amp to divmod" << endl;
     }
@@ -277,9 +277,9 @@ SC_MODULE(Network) {
     if (clk.event()) {
       network_result = top_output_bundle;
       top_wu_input = stim_wu;
-      
+
       cout << "ptrlocs: " << (int32_t)top_pos_track << " " << (int32_t)pos_bottom_low << "," << (int32_t)pos_bottom_high << endl;
-    } 
+    }
   }
 
   SC_CTOR(Network) : SCD(top_output_bundle, top_wu_input, top_depthlim, input_bundle_to_top, top_pos_track, top_to_heightdiv_wu, bottom_to_top_amp_rply, bottom_high_req, bottom_low_req, bottom_depthlim, bottoms_amp_input, input_bundle_to_bottom_low, input_bundle_to_bottom_high, output_bundle_bottom_low, output_bundle_bottom_high, pos_bottom_low, pos_bottom_high, amp_bottom_high_to_div, wu_bottom_high_tieoff, amp_bottom_low_to_div, wu_bottom_low_tieoff),
@@ -288,69 +288,69 @@ SC_MODULE(Network) {
     sensitive_pos(clk);
 
     // top findamp
-    
+
     Vfindamp *top = new Vfindamp("top");
     top->clk(clk);
     top->rst(rst);
-    
+
     top->input_bundle(input_bundle_to_top);
     top->output_bundle(top_output_bundle);
-    
+
     Vjoin_input *top_joiner = new Vjoin_input("top_joiner");
     top_joiner->clk(clk);
     top_joiner->rst(rst);
-    
+
     top_joiner->depthlim(top_depthlim); top_depthlim.write(2);
     top_joiner->amp(bottom_to_top_amp_rply);
     top_joiner->wu(top_wu_input);
     top_joiner->input_bundle(input_bundle_to_top);
-    
+
     Vsplit_output *top_output_split = new Vsplit_output("top_output_split");
     top_output_split->clk(clk);
     top_output_split->rst(rst);
-    
+
     top_output_split->output_bundle(top_output_bundle);
     top_output_split->pos(top_pos_track);
     top_output_split->amp(top_amp_output);
     top_output_split->wu(top_to_heightdiv_wu);
-    
+
     // heightdiv
-    
+
     Vheightdiv *heightdiv = new Vheightdiv("heightdiv");
     heightdiv->clk(clk);
     heightdiv->rst(rst);
-    
+
     heightdiv->upstream_req(top_to_heightdiv_wu);
     heightdiv->upstream_rply(bottom_to_top_amp_rply);
     heightdiv->downstream_high_req(bottom_high_req);
     heightdiv->downstream_high_rply(amp_bottom_high_to_div);
     heightdiv->downstream_low_req(bottom_low_req);
     heightdiv->downstream_low_rply(amp_bottom_low_to_div);
-    
+
     // heightdiv to top parser
-    
+
     Vunpack_ampreply *debug_ampparser = new Vunpack_ampreply("debug_ampparser");
     debug_ampparser->clk(clk);
     debug_ampparser->rst(rst);
-    
+
     debug_ampparser->ampreply(bottom_to_top_amp_rply);
-    
+
     debug_ampparser->valid(dbg_valid);
     debug_ampparser->destidx(dbg_destidx);
     debug_ampparser->destpredidx(dbg_destpredidx);
     debug_ampparser->realpt(dbg_realpt);
     debug_ampparser->imagpt(dbg_imagpt);
     debug_ampparser->targetstate(dbg_targetstate);
-    
+
     // bottom_low
-    
+
     Vfindamp *bottom_low = new Vfindamp("bottom_low");
     bottom_low->clk(clk);
     bottom_low->rst(rst);
-    
+
     bottom_low->input_bundle(input_bundle_to_bottom_low);
     bottom_low->output_bundle(output_bundle_bottom_low);
-    
+
     Vjoin_input *bottom_low_joiner = new Vjoin_input("bottom_low_joiner");
     bottom_low_joiner->clk(clk);
     bottom_low_joiner->rst(rst);
@@ -359,25 +359,25 @@ SC_MODULE(Network) {
     bottom_low_joiner->amp(bottoms_amp_input); bottoms_amp_input.write(0);
     bottom_low_joiner->wu(bottom_low_req);
     bottom_low_joiner->input_bundle(input_bundle_to_bottom_low);
-    
+
     Vsplit_output *bottom_low_output_split = new Vsplit_output("bottom_low_output_split");
     bottom_low_output_split->clk(clk);
     bottom_low_output_split->rst(rst);
-    
+
     bottom_low_output_split->output_bundle(output_bundle_bottom_low);
     bottom_low_output_split->pos(pos_bottom_low);
     bottom_low_output_split->amp(amp_bottom_low_to_div);
     bottom_low_output_split->wu(wu_bottom_low_tieoff); // should be tieoff
-    
+
     // bottom_high
-    
+
     Vfindamp *bottom_high = new Vfindamp("bottom_high");
     bottom_high->clk(clk);
     bottom_high->rst(rst);
-    
+
     bottom_high->input_bundle(input_bundle_to_bottom_high);
     bottom_high->output_bundle(output_bundle_bottom_high);
-    
+
     Vjoin_input *bottom_high_joiner = new Vjoin_input("bottom_high_joiner");
     bottom_high_joiner->clk(clk);
     bottom_high_joiner->rst(rst);
@@ -386,11 +386,11 @@ SC_MODULE(Network) {
     bottom_high_joiner->amp(bottoms_amp_input);
     bottom_high_joiner->wu(bottom_high_req);
     bottom_high_joiner->input_bundle(input_bundle_to_bottom_high);
-    
+
     Vsplit_output *bottom_high_output_split = new Vsplit_output("bottom_high_output_split");
     bottom_high_output_split->clk(clk);
     bottom_high_output_split->rst(rst);
-    
+
     bottom_high_output_split->output_bundle(output_bundle_bottom_high);
     bottom_high_output_split->pos(pos_bottom_high);
     bottom_high_output_split->amp(amp_bottom_high_to_div);
@@ -425,8 +425,8 @@ int sc_main(int argc, char **argv) {
   net->rst(rst);
 
   // introduce a request into the network
-  sc_signal<sc_biguint<WUSZ>> SCD(stim_wu);
-  sc_signal<sc_biguint<OUTBSZ>> SCD(outputbundle);
+  sc_signal<sc_bv<WUSZ>> SCD(stim_wu);
+  sc_signal<sc_bv<OUTBSZ>> SCD(outputbundle);
 
   stim->workunit(stim_wu);
   net->stim_wu(stim_wu);

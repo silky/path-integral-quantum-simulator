@@ -15,7 +15,7 @@ MPATH=/home/parallels/Projects/ACS/qsim/packages/MathNet.Numerics.4.4.0/lib/net4
 MFLAGS=
 RESTRICT_FLAG=-max-no-int-divs=1 -max-no-fp-divs=1 -max-no-int-muls=1 -max-no-fp-muls=1 -max-no-fp-addsubs=1
 
-SYSC=/media/psf/Home/Projects/ACS/P35/systemc-2.3.2
+SYSC=/usr/local/systemc-2.3.2
 CPPFLAGS=-std=c++14 -DSC_CPLUSPLUS=201402L -DSC_DISABLE_API_VERSION_CHECK=0 -Wno-unused-variable -Wall -g
 INCLUDES=-I/usr/share/verilator/include/ -I$(SYSC)/include/
 ### SOFTWARE
@@ -57,7 +57,7 @@ clean:
 	rm -rf build/* tests/a.out
 	rm -rf src/CLaSH/verilog
 	find src/CLaSH/ -name "*hi" -type f -delete
-	
+
 	find src/CLaSH/ -name "*.o" -type f -delete
 	find src/CLaSH/ -name "*dyn_o" -type f -delete
 	find tests -name "*hi" -type f -delete
@@ -70,7 +70,7 @@ deepclean: clean # drop the mono packages - needs internet to rebuild.
 
 build/path_simulation.exe: src/FS/path_simulation.fs build/QLib.dll build/demo.dll  packages
 	fsharpc -o build/path_simulation.exe --target:exe src/FS/path_simulation.fs -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r build/QLib.dll -r build/demo.dll
-	
+
 build/direct_calculation.exe: src/FS/direct_calculation.fs build/QLib.dll build/demo.dll  packages
 	fsharpc -o build/direct_calculation.exe --target:exe src/FS/direct_calculation.fs -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r packages/MathNet.Numerics.4.4.0/lib/net461/MathNet.Numerics.dll -r build/QLib.dll -r build/demo.dll
 
@@ -79,17 +79,17 @@ build/demo.dll: src/FS/demo.fs  packages
 
 ## TLM model
 
-build/model: src/cpp/model.cpp src/cpp/algo.cpp src/cpp/algo.h src/cpp/loggingsocket.hpp 
+build/model: src/cpp/model.cpp src/cpp/algo.cpp src/cpp/algo.h src/cpp/loggingsocket.hpp
 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ src/cpp/model.cpp src/cpp/algo.cpp -o build/model
 
 # build/RTLmodel: build/verilated.o archives
 # 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) build/verilator_model.o build/V*__ALL*.o build/verilated.o -o build/RTLmodel
 
 build/model2: src/cpp/model2.cpp src/cpp/algo.cpp src/cpp/algo.h src/cpp/loggingsocket.hpp src/cpp/tlm_types.cpp
-	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ $(INCLUDES) -Ibuild/ src/cpp/model2.cpp src/cpp/algo.cpp src/cpp/tlm_types.cpp -o build/model2 
+	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ -I$(SYSC)/include/ $(INCLUDES) -Ibuild/ src/cpp/model2.cpp src/cpp/algo.cpp src/cpp/tlm_types.cpp -o build/model2
 
 
-build/cppexample: src/cpp/algo.cpp src/cpp/algo.h src/cpp/demo.cpp 
+build/cppexample: src/cpp/algo.cpp src/cpp/algo.h src/cpp/demo.cpp
 	g++ $(CPPFLAGS) src/cpp/algo.cpp src/cpp/demo.cpp -Isrc/cpp/ -o build/cppexample
 
 build/tlm_types.o: src/cpp/tlm_types.cpp
@@ -108,12 +108,12 @@ build/verilog/networkRTL.v: src/Python/structure_gen.py src/verilog/networkRTL.t
 
 # we need to exclude the top level modules from the verilator generators
 ALLMODV = `find build/verilog/ -name "*.v" -not -name "networkRTL.v"`
-	
-build/V%.cpp: build/verilog/%.v 
-	verilator -Wall --sc $(ALLMODV) --Mdir build/ -Ibuild/verilog/ --top-module $(basename $(notdir $^)) -Wno-fatal
 
-build/VnetworkRTL.cpp: build/verilog/networkRTL.v 
-	verilator -Wall --sc build/verilog/*.v --Mdir build/ -Ibuild/verilog/ --top-module $(basename $(notdir $^)) -Wno-fatal
+build/V%.cpp: build/verilog/%.v clash build/widths.h
+	verilator -Wall --sc $(ALLMODV) --Mdir build/ -Ibuild/verilog/ --top-module $(basename $(notdir $<)) -Wno-fatal
+
+build/VnetworkRTL.cpp: build/verilog/networkRTL.v build/widths.h
+	verilator -Wall --sc build/verilog/*.v --Mdir build/ -Ibuild/verilog/ --top-module networkRTL -Wno-fatal
 
 
 ## Now the parts are in a consistant directory, we can use makefile rules to be a bit more consise
@@ -125,7 +125,7 @@ build/V%__ALL.a: build/V%.cpp
 build/verilator_model.o: src/cpp/verilator_model.cpp modulesources  # Vcmult is for the .h file
 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) -Ibuild/ -c src/cpp/verilator_model.cpp -o build/verilator_model.o
 
-build/verilator_transactor.o: src/cpp/rtl_findamp_transactor.cpp modulesources 
+build/verilator_transactor.o: src/cpp/rtl_findamp_transactor.cpp modulesources
 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) -Ibuild/ -c src/cpp/rtl_findamp_transactor.cpp -o build/verilator_transactor.o
 
 
@@ -139,7 +139,7 @@ build/verilated.o: build/verilator_model.o build/verilator_transactor.o
 # input/output unpackers
 
 
-build/RTLmodel: build/verilated.o archives
+build/RTLmodel: build/verilated.o archives build/widths.h
 	g++ $(CPPFLAGS) -lsystemc -L$(SYSC)/lib-linux64/ $(INCLUDES) build/verilator_model.o build/V*__ALL*.a build/verilated.o -o build/RTLmodel
 
 
@@ -149,21 +149,21 @@ build/RTLmodel: build/verilated.o archives
 
 MATCHSTR = ".*\(.v\|.manifest\|.inc\)\'"
 
-build/verilog/findamp.v: src/CLaSH/FindAmp.hs src/CLaSH/HwTypes.hs 
-	cd build && stack exec -- clash --verilog ../src/CLaSH/FindAmp.hs	-i../src/CLaSH/ 
+build/verilog/findamp.v: src/CLaSH/FindAmp.hs src/CLaSH/HwTypes.hs
+	cd build && stack exec -- clash --verilog ../src/CLaSH/FindAmp.hs	-i../src/CLaSH/
 	-mv `find build/verilog/FindAmp -regex $(MATCHSTR)` build/verilog/
 
-build/verilog/heightdiv.v: src/CLaSH/HeightDiv.hs src/CLaSH/HwTypes.hs 
-	cd build && stack exec -- clash --verilog ../src/CLaSH/HeightDiv.hs	-i../src/CLaSH/ 
-	-mv `find build/verilog/HeightDiv -regex $(MATCHSTR)` build/verilog/
+build/verilog/heightdiv.v: src/CLaSH/HeightDiv.hs src/CLaSH/HwTypes.hs
+	cd build && stack exec -- clash --verilog ../src/CLaSH/HeightDiv.hs	-i../src/CLaSH/
+	-mv `find build/verilog/HeightDiv/heightdiv/ -regex $(MATCHSTR)` build/verilog/
 
 
-build/clashinterfaces: src/CLaSH/Interfaces.hs src/CLaSH/HwTypes.hs 
+build/clashinterfaces: src/CLaSH/Interfaces.hs src/CLaSH/HwTypes.hs
 	cd build && stack exec -- clash --verilog ../src/CLaSH/Interfaces.hs	-i../src/CLaSH/
 	-mv `find build/verilog/Interfaces -regex $(MATCHSTR)` build/verilog/
 	touch build/clashinterfaces # the generated files and the src do not share a common stem, so we use this as a hack
 
-build/clashsplitters: src/CLaSH/Split.hs src/CLaSH/HwTypes.hs 
+build/clashsplitters: src/CLaSH/Split.hs src/CLaSH/HwTypes.hs
 	cd build && stack exec -- clash --verilog ../src/CLaSH/Split.hs	-i../src/CLaSH/
 	-mv `find build/verilog/Split -regex $(MATCHSTR)` build/verilog/
 	touch build/clashsplitters
@@ -171,18 +171,19 @@ build/clashsplitters: src/CLaSH/Split.hs src/CLaSH/HwTypes.hs
 
 $(INTERFACES): build/clashinterfaces
 interfaces: $(INTERFACES)
-	
+
 $(SPLITTERS): build/clashsplitters
 splitters: $(SPLITTERS)
 
-clash: build/verilog/findamp.v build/clashsplitters build/clashinterfaces 
+clash: build/verilog/findamp.v build/verilog/heightdiv.v build/clashsplitters build/clashinterfaces
 
-
+build/widths.h: src/Python/signal_widths.py build/verilog/findamp.v
+	python3 src/Python/signal_widths.py > build/widths.h
 ## Test stuff.
 
 bwplots:
 	python3 src/Python/socket_bandwidth_plot.py bwlog.csv 20us
-	
+
 build/timing_report.txt:$(addprefix build/verilog/,$(addsuffix .v,$(ALLV))) src/timing.tcl
 	vivado -mode batch -source src/timing.tcl -tclargs `find build/verilog -name "*.v"`
 

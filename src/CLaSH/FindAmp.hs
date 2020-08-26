@@ -7,7 +7,13 @@ import Debug.Trace
 import qualified Data.List as L
 
 type WorkList = Vec 5 WorkUnit -- Circuitlen + 1 (or the depth of this module+1)
-data ModuleState n = ModuleState { state_worklist :: Vec n WorkUnit, state_workpos :: PtrT, state_wlist_empty :: Bool } -- signed to allow for -1: invalid signal (sas the wlist is a pow2 no spare signalling value without adding a bit)
+data ModuleState n =
+  ModuleState 
+    { state_worklist :: Vec n WorkUnit, state_workpos :: PtrT
+     -- | signed to allow for -1: invalid signal (sas the wlist is a pow2 no spare signalling value without adding a bit)
+     , state_wlist_empty :: Bool
+    }
+    deriving (Generic, NFDataX)
 
 
 {-# INLINE complete_elem #-}
@@ -228,11 +234,14 @@ initalstate :: ModuleState 5 = ModuleState { state_worklist = repeat emptywu, st
     }) #-}
 
 topEntity   
-  :: Clock System Source
-  -> Reset System Asynchronous 
+  :: Clock System
+  -> Reset System
   -> Signal System Input
   -> Signal System Output
-topEntity = exposeClockReset (mealy findamp_mealy_N initalstate)
+topEntity clk rst =
+  exposeClockResetEnable (mealy findamp_mealy_N initalstate) clk rst en
+  where
+    en = enableGen
 
 
 -- hardwaretranslate blocks let you go from Maybe x to (Bit, x)

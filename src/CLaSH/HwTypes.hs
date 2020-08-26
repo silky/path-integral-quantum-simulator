@@ -14,7 +14,7 @@ type State = BitVector 16
 type StateIdx = Index 16
 type NumT = SFixed 3 10
 data Amplitude = Amplitude { real :: NumT,
-                             imag :: NumT } deriving (Show, Generic, NFData)
+                             imag :: NumT } deriving (Show, Generic, NFDataX)
 
 sqrt22 = $$(fLit ((sqrt 2.0) / 2.0)) :: NumT
 zero = $$(fLit 0.0) :: NumT
@@ -138,8 +138,8 @@ evaluateCNOT _ _ = Amplitude { real = zero, imag = zero } -- all other in-out pa
 
 -- data processing typedef stuff
 
-data DepStatus = DS_INIT | DS_REQUESTED | DS_COMPLETE | DS_DONT_CARE deriving (Eq, Show, Generic, NFData)
-data RetType = RT_LOCAL | RT_UPSTREAM deriving (Eq, Show, Generic, NFData)
+data DepStatus = DS_INIT | DS_REQUESTED | DS_COMPLETE | DS_DONT_CARE deriving (Eq, Show, Generic, NFDataX)
+data RetType = RT_LOCAL | RT_UPSTREAM deriving (Eq, Show, Generic, NFDataX)
 
 type PredPtrT = Index 4
 
@@ -156,7 +156,7 @@ data WorkUnit = WorkUnit {
   wu_returnloc :: RetType,
   wu_ampreply_dest_idx :: PtrT, 
   wu_ampreply_dest_pred_idx :: PredPtrT
-} deriving (Show, Generic, NFData)
+} deriving (Show, Generic, NFDataX)
 
 emptywu = WorkUnit { -- need defaults for non-Maybe (i.e. HW) types
   wu_target = 0,
@@ -178,13 +178,13 @@ emptywu = WorkUnit { -- need defaults for non-Maybe (i.e. HW) types
 type PtrT = Index 33 --Signed 7 -- ptr to a worklist element. we need this globaly as it goes in the workunit request
 
 data AmpReply = AmpReply { ampreply_target :: State, ampreply_amplitude :: Amplitude,
-                           ampreply_dest_idx :: PtrT, ampreply_dest_pred_idx :: PredPtrT } deriving (Show, Generic, NFData)
+                           ampreply_dest_idx :: PtrT, ampreply_dest_pred_idx :: PredPtrT } deriving (Show, Generic, NFDataX)
 
 emptyamp = AmpReply { ampreply_target = 0, ampreply_amplitude = czero,
                       ampreply_dest_idx  =0, ampreply_dest_pred_idx = 0 }
 
-data Input = Input { input_wu :: Maybe WorkUnit, input_amp :: Maybe AmpReply, input_depth_split :: CircuitPtr } deriving (Show, Generic, NFData)
-data Output = Output { output_workunit :: Maybe WorkUnit, output_amp :: Maybe AmpReply, output_ptr_dbg :: Maybe PtrT } deriving (Show, Generic, NFData)
+data Input = Input { input_wu :: Maybe WorkUnit, input_amp :: Maybe AmpReply, input_depth_split :: CircuitPtr } deriving (Show, Generic, NFDataX)
+data Output = Output { output_workunit :: Maybe WorkUnit, output_amp :: Maybe AmpReply, output_ptr_dbg :: Maybe PtrT } deriving (Show, Generic, NFDataX)
 emptyout = Output { output_workunit = Nothing, output_amp = Nothing, output_ptr_dbg = Nothing }
 
 -- circuit defs

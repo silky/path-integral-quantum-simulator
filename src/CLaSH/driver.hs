@@ -1,3 +1,5 @@
+-- NOTE(noon): I'm not sure what's up with this file; it seems unused as it's
+-- certainly not close to compiling.
 module Driver where
 
 import Clash.Prelude

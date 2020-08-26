@@ -1,7 +1,7 @@
 FROM ubuntu:18.04
 
 RUN apt-get update && apt-get install -y git ca-certificates build-essential curl wget libghc-zlib-dev libgmp-dev python3 verilator
-RUN curl -sSL https://get.haskellstack.org/ | sh && stack install --resolver=lts-12.10 clash-ghc-0.99.3
+RUN curl -sSL https://get.haskellstack.org/ | sh && stack install --resolver=lts-16.10 clash-ghc-1.2.4
 RUN wget https://www.accellera.org/images/downloads/standards/systemc/systemc-2.3.3.tar.gz &&\
     tar xvf systemc-2.3.3.tar.gz && cd systemc-2.3.3 && mkdir build && mkdir /usr/local/systemc-2.3.2 &&\
     cd build && ../configure --prefix=/usr/local/systemc-2.3.2 && make -j && make install

@@ -49,8 +49,10 @@ heightdiv queue (req, rpy_hi, rpy_low) = (queueout, (req_hi, req_low, rpy))
 initalstate = repeat Nothing
 
 topEntity   
-  :: Clock System Source
-  -> Reset System Asynchronous 
+  :: Clock System
+  -> Reset System
   -> Signal System (Maybe WorkUnit, Maybe AmpReply, Maybe AmpReply)
   -> Signal System (Maybe WorkUnit, Maybe WorkUnit, Maybe AmpReply)
-topEntity = exposeClockReset (mealy heightdiv initalstate)
+topEntity clk rst =
+  exposeClockResetEnable (mealy heightdiv initalstate) clk rst enableGen
+

@@ -33,11 +33,11 @@ join_output _ (wu, amp, ptr) = ((), Output { output_workunit=wu, output_amp=amp,
     , t_output  = PortName "input_bundle"
     }) #-}
 join_input_entity   
-  :: Clock System Source
-  -> Reset System Asynchronous 
+  :: Clock System 
+  -> Reset System 
   -> Signal System (Maybe WorkUnit, Maybe AmpReply, CircuitPtr)
   -> Signal System Input
-join_input_entity = exposeClockReset (mealy join_input ())
+join_input_entity clk rst = exposeClockResetEnable (mealy join_input ()) clk rst enableGen
 
 
 {-# ANN split_input_entity
@@ -51,11 +51,11 @@ join_input_entity = exposeClockReset (mealy join_input ())
     , t_output = PortProduct "" [PortName "wu", PortName "amp", PortName "depthlim"]
     }) #-}
 split_input_entity   
-  :: Clock System Source
-  -> Reset System Asynchronous 
+  :: Clock System 
+  -> Reset System 
   -> Signal System Input
   -> Signal System (Maybe WorkUnit, Maybe AmpReply, CircuitPtr)
-split_input_entity = exposeClockReset (mealy split_input ())
+split_input_entity clk rst = exposeClockResetEnable (mealy split_input ()) clk rst enableGen
 
 
 {-# ANN split_output_entity
@@ -69,11 +69,11 @@ split_input_entity = exposeClockReset (mealy split_input ())
     , t_output = PortProduct "" [PortName "wu", PortName "amp", PortName "pos" ]
   }) #-}
 split_output_entity   
-  :: Clock System Source
-  -> Reset System Asynchronous 
+  :: Clock System 
+  -> Reset System 
   -> Signal System Output
   -> Signal System (Maybe WorkUnit, Maybe AmpReply, Maybe PtrT)
-split_output_entity = exposeClockReset (mealy split_output ())
+split_output_entity clk rst = exposeClockResetEnable (mealy split_output ()) clk rst enableGen
 
 {-# ANN join_output_entity
   (Synthesize
@@ -86,9 +86,9 @@ split_output_entity = exposeClockReset (mealy split_output ())
     , t_output  = PortName "output_bundle"
   }) #-}
 join_output_entity   
-  :: Clock System Source
-  -> Reset System Asynchronous 
+  :: Clock System 
+  -> Reset System 
   -> Signal System (Maybe WorkUnit, Maybe AmpReply, Maybe PtrT)
   -> Signal System Output
-join_output_entity = exposeClockReset (mealy join_output ())
+join_output_entity clk rst = exposeClockResetEnable (mealy join_output ()) clk rst enableGen
 

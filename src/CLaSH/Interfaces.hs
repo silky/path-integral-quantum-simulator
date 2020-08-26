@@ -64,11 +64,11 @@ unpack_output _ output = ((), (wu, wu_valid, amp, amp_valid, ptrloc))
     }) #-}
 
 pack_input_entity   
-  :: Clock System Source
-  -> Reset System Asynchronous 
+  :: Clock System 
+  -> Reset System 
   -> Signal System (CircuitPtr, (State, State, CircuitPtr), Bit, AmpReply, Bit)
   -> Signal System Input
-pack_input_entity = exposeClockReset (mealy pack_input ())
+pack_input_entity clk rst = exposeClockResetEnable (mealy pack_input ()) clk rst enableGen
 
 
 
@@ -88,11 +88,11 @@ pack_input_entity = exposeClockReset (mealy pack_input ())
     }) #-}
 
 unpack_output_entity   
-  :: Clock System Source
-  -> Reset System Asynchronous 
+  :: Clock System 
+  -> Reset System
   -> Signal System Output
   -> Signal System (WorkUnit, Bit, AmpReply, Bit, Signed 32)
-unpack_output_entity = exposeClockReset (mealy unpack_output ())
+unpack_output_entity clk rst = exposeClockResetEnable (mealy unpack_output ()) clk rst enableGen
 
 -- data Amplitude = Amplitude { real :: SFixed 2 10,
 --                              imag :: SFixed 2 10 } deriving (Show, Generic, NFData)
@@ -135,11 +135,11 @@ unpack_ampreply _ rply = ((), out)
     }) #-}
 
 unpack_ampreply_entity   
-  :: Clock System Source
-  -> Reset System Asynchronous 
+  :: Clock System 
+  -> Reset System 
   -> Signal System (Maybe AmpReply)
   -> Signal System (Bit, Signed 13, Signed 13, State, PtrT, PredPtrT)
-unpack_ampreply_entity = exposeClockReset (mealy unpack_ampreply ())
+unpack_ampreply_entity clk rst = exposeClockResetEnable (mealy unpack_ampreply ()) clk rst enableGen
 
 -- ignores splitdepth (ovs), should remove
 pack_workunit :: () -> (CircuitPtr, (State, State, CircuitPtr), Bit) -> ((), Maybe WorkUnit)
@@ -162,11 +162,11 @@ pack_workunit _ (splitdepth, (target, inital, depth), wu_enb) =
     }) #-}
 
 pack_workunit_entity   
-  :: Clock System Source
-  -> Reset System Asynchronous 
+  :: Clock System 
+  -> Reset System 
   -> Signal System (CircuitPtr, (State, State, CircuitPtr), Bit)
   -> Signal System (Maybe WorkUnit)
-pack_workunit_entity = exposeClockReset (mealy pack_workunit ())
+pack_workunit_entity clk rst = exposeClockResetEnable (mealy pack_workunit ()) clk rst enableGen
 
 parse_ptr :: () -> Maybe PtrT -> ((), Signed 32)
 parse_ptr _ ptr = ((), if (isJust ptr) 
@@ -186,11 +186,11 @@ parse_ptr _ ptr = ((), if (isJust ptr)
     }) #-}
 
 parse_ptr_entity   
-  :: Clock System Source
-  -> Reset System Asynchronous 
+  :: Clock System 
+  -> Reset System 
   -> Signal System (Maybe PtrT)
   -> Signal System (Signed 32)
-parse_ptr_entity = exposeClockReset (mealy parse_ptr ())
+parse_ptr_entity clk rst = exposeClockResetEnable (mealy parse_ptr ()) clk rst enableGen
 
 ------- TESTBENCH GENERATION MODULES
 
